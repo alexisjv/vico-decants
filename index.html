@@ -28,12 +28,17 @@ body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font
 .badge{display:inline-flex;align-items:center;justify-content:center;margin-left:6px;padding:1px 6px;border-radius:8px;background:var(--goldl);color:var(--gold);font-size:.55rem;font-weight:700;vertical-align:middle}
 .view{display:none}.view.on{display:flex}
 
-.syncbar-inline{display:flex;align-items:center;gap:7px;margin-left:auto;padding:0 18px;font-size:.67rem;color:rgba(232,228,220,.35);white-space:nowrap}
+.syncbar-inline{display:flex;align-items:center;gap:6px;margin-left:auto;padding:0 16px;width:160px;justify-content:flex-end;flex-shrink:0}
 .sdot{width:7px;height:7px;border-radius:50%;background:rgba(232,228,220,.25);flex-shrink:0;transition:background .3s}
 .sdot.ok{background:var(--grn)}
 .sdot.err{background:var(--red)}
 .sdot.loading{background:var(--gold);animation:spin .8s linear infinite}
-.smsg{transition:opacity .3s;font-size:.67rem}
+.smsg{font-size:.67rem;color:rgba(232,228,220,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+/* toast */
+.toast{position:fixed;bottom:22px;right:22px;z-index:400;padding:11px 18px;border-radius:4px;font-size:.78rem;font-weight:600;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,.25);transform:translateY(10px);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;max-width:320px;line-height:1.4}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:var(--grn)}
+.toast.err{background:var(--red)}
 
 input[type=number],input[type=text],input[type=url],select{
   width:100%;border:1.5px solid var(--line);background:var(--w);
@@ -193,6 +198,29 @@ select.ctrl{cursor:pointer;padding-right:24px;font-weight:500;background-image:u
 .bi:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
 .bi.del:hover{background:var(--red);border-color:var(--red)}
 .cempty{text-align:center;padding:55px 18px;color:var(--fog);font-style:italic;animation:fi .4s ease both}
+/* mobile double-row list */
+.mob-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--w);border-bottom:1px solid var(--line);animation:fi .22s ease both;transition:background .14s}
+.mob-row:hover{background:rgba(30,27,24,.03)}
+.mob-img{flex-shrink:0}
+.mob-th{width:46px;height:46px;object-fit:contain;border-radius:3px;background:var(--bg);padding:3px;display:block}
+.mob-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.mob-line1{display:flex;align-items:center;gap:7px}
+.mob-name{font-size:.85rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.mob-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.mob-dot.in{background:var(--grn)}.mob-dot.out{background:var(--red)}
+.mob-line2{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.mob-meta{font-size:.68rem;color:var(--fog);font-weight:500}
+.mob-tipo{font-size:.62rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:1px 5px;background:var(--goldl);color:var(--gold);border-radius:2px}
+.mob-cod{font-size:.62rem;color:var(--fog);font-variant-numeric:tabular-nums}
+.mob-prices{display:flex;gap:8px;margin-top:1px}
+.mob-price{display:flex;flex-direction:column;align-items:flex-start;min-width:52px}
+.mob-price span:last-child{font-size:.8rem;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.mob-best span:last-child{color:var(--gold)}
+.mob-pl{font-size:.56rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--fog)}
+.mob-acts{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.mob-btn{width:32px;height:32px;border:1.5px solid var(--line);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.8rem;transition:all .14s;color:var(--fog);border-radius:3px}
+.mob-btn:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mob-btn.del:hover{background:var(--red);border-color:var(--red)}
 
 .ov{position:fixed;inset:0;background:rgba(20,18,15,.75);z-index:200;display:none;align-items:center;justify-content:center;padding:14px;backdrop-filter:blur(5px)}
 .ov.on{display:flex}
@@ -282,7 +310,7 @@ select.ctrl{cursor:pointer;padding-right:24px;font-weight:500;background-image:u
 
 <nav class="tabs">
   <button class="tab on" onclick="sv('vc')">Carga de producto</button>
-  <button class="tab" onclick="sv('vcat')">Catálogo <span class="badge" id="cn"></span></button>
+  <button class="tab" onclick="sv('vcat')">Catálogo&thinsp;<span class="badge" id="cn"></span></button>
   <div class="syncbar-inline">
     <div class="sdot" id="sdot"></div>
     <span class="smsg" id="smsg">Conectando…</span>
@@ -463,6 +491,7 @@ select.ctrl{cursor:pointer;padding-right:24px;font-weight:500;background-image:u
   <div id="cc" class="cgrid"><div class="cempty">Cargando…</div></div>
 </div>
 
+<div class="toast" id="toast"></div>
 <div class="ov" id="ovD">
   <div class="modal">
     <h3>Eliminar producto</h3>
@@ -553,10 +582,18 @@ async function sbDelete(dbId){
 // ── LOCAL CACHE (para velocidad) ──
 let CAT=[];
 
+let _toastTimer=null;
+function toast(msg,type='ok'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast '+type+' show';
+  if(_toastTimer)clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+const SYNC_LABELS={loading:'Sincronizando',ok:'Sincronizado',err:'Error'};
 function sync(msg,state){
-  // state: 'loading' | 'ok' | 'err'
   document.getElementById('sdot').className='sdot '+state;
-  document.getElementById('smsg').textContent=msg;
+  document.getElementById('smsg').textContent=SYNC_LABELS[state]||msg;
+  if(state==='err')toast(msg,'err');
 }
 
 async function loadDB(){
@@ -743,6 +780,7 @@ async function save(){
     if(idx>=0)CAT[idx]=p;else CAT.push(p);
     ubadge();umf();
     sync('Guardado correctamente','ok');
+    toast('Producto guardado correctamente','ok');
     b.textContent='✓ Guardado';b.style.background='var(--grn)';b.style.opacity='1';
     setTimeout(()=>{b.style.background='';b.style.pointerEvents='';rfm();},1400);
   }catch(e){
@@ -800,6 +838,8 @@ function rcat(q=''){
   const cc=document.getElementById('cc');
   cc.className=vm_==='g'?'cgrid':'clist';
   if(!fx.length){cc.innerHTML=`<div class="cempty">${CAT.length===0?'Todavía no hay productos.':'Sin resultados.'}</div>`;return;}
+  // helper: mobile double-row list item
+  const isMobile=window.innerWidth<580;
   if(vm_==='g'){
     cc.innerHTML=fx.map((p,i)=>`
 <div class="card" style="animation-delay:${Math.min(i*.04,.5)}s">
@@ -860,6 +900,7 @@ document.getElementById('bdk').onclick=async()=>{
     _dk=null;ubadge();umf();cov();
     rcat(document.querySelector('input.ctrl').value||'');
     sync('Eliminado correctamente','ok');
+    toast('Producto eliminado','ok');
   }catch(e){sync('Error al eliminar: '+e.message,'err');}
 };
 function cov(){document.getElementById('ovD').classList.remove('on');}
