@@ -217,88 +217,94 @@ select.ctrl{cursor:pointer;padding-right:22px;font-weight:500;background-image:u
 .mob-bi:hover{background:var(--ink);color:#fff;border-color:var(--ink)}.mob-bi.del:hover{background:var(--red);border-color:var(--red)}
 .cempty{text-align:center;padding:55px 18px;color:var(--fog);font-style:italic;animation:fi .4s ease both}
 
-/* ── PEDIDOS 2-col ── */
+/* ── PEDIDOS ── */
 #vpd{flex-direction:row;min-height:calc(100vh - 46px);align-items:stretch}
-.pd-left{flex:1 1 52%;display:flex;flex-direction:column;padding:24px 22px;gap:20px;overflow-y:auto;background:var(--w);border-right:1px solid var(--line)}
-.pd-right{flex:1 1 48%;display:flex;flex-direction:column;padding:20px 18px;gap:14px;overflow-y:auto;background:var(--surf)}
-/* left: form + dark summary */
-.pd-form-section{display:flex;flex-direction:column;gap:18px}
-.pd-summary-box{background:var(--ink);border-radius:4px;padding:18px;display:flex;flex-direction:column;gap:14px}
-.pd-summary-box .sl{color:rgba(232,228,220,.28)}.pd-summary-box .sl::after{background:var(--linek)}
+.pd-main{flex:0 0 63%;display:flex;flex-direction:column;border-right:1px solid var(--line);background:var(--bg);overflow-y:auto}
+.pd-sidebar{flex:1;display:flex;flex-direction:column;padding:20px 18px;gap:14px;background:var(--surf);overflow-y:auto}
+.pd-inner{display:grid;grid-template-columns:1fr 1fr;min-height:100%}
+.pd-items-col{padding:22px 18px 28px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:16px;background:var(--w)}
+.pd-info-col{padding:22px 18px 28px;display:flex;flex-direction:column;gap:16px;background:var(--ink)}
+.pd-info-col .sl{color:rgba(232,228,220,.28)}.pd-info-col .sl::after{background:var(--linek)}
+/* search */
 .pdsearch{position:relative}
 .pdsrch-ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:.85rem;opacity:.35;pointer-events:none}
 .pdsearch input{padding-left:32px}
-.pddrop{position:absolute;top:100%;left:0;right:0;background:var(--w);border:1.5px solid var(--ink);border-top:none;border-radius:0 0 3px 3px;z-index:80;max-height:220px;overflow-y:auto;display:none}
+.pddrop{position:absolute;top:100%;left:0;right:0;background:var(--w);border:1.5px solid var(--ink);border-top:none;border-radius:0 0 4px 4px;z-index:80;max-height:220px;overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.12)}
 .pddrop.on{display:block}
 .pdopt{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;transition:background .12s;border-bottom:1px solid var(--line)}
 .pdopt:last-child{border-bottom:none}.pdopt:hover{background:var(--bg)}
-.pdopt-img{width:32px;height:32px;object-fit:contain;background:var(--bg);border-radius:2px;flex-shrink:0;padding:2px}
-.pdopt-noph{width:32px;height:32px;background:var(--bg);border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;opacity:.3;font-size:.75rem}
+.pdopt-img{width:34px;height:34px;object-fit:contain;background:var(--bg);border-radius:3px;flex-shrink:0;padding:2px}
+.pdopt-noph{width:34px;height:34px;background:var(--bg);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;opacity:.3;font-size:.8rem}
 .pdopt-info{flex:1;min-width:0}
 .pdopt-name{font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pdopt-sub{font-size:.63rem;color:var(--fog)}
-.order-list{display:flex;flex-direction:column;gap:5px}
-.oi{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;display:flex;gap:8px;align-items:flex-start;animation:up .2s ease both}
-.oi-img{width:36px;height:36px;object-fit:contain;background:var(--w);border-radius:2px;padding:3px;flex-shrink:0}
-.oi-noph{width:36px;height:36px;background:var(--w);border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;opacity:.2}
+.pdopt-price{font-size:.7rem;font-weight:600;color:var(--gold);white-space:nowrap;flex-shrink:0}
+/* order items */
+.order-list{display:flex;flex-direction:column;gap:6px}
+.oi{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:10px 11px;display:flex;gap:8px;align-items:flex-start;animation:up .2s ease both;transition:box-shadow .15s}
+.oi:hover{box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.oi-img{width:36px;height:36px;object-fit:contain;background:var(--w);border-radius:3px;padding:3px;flex-shrink:0}
+.oi-noph{width:36px;height:36px;background:var(--w);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;opacity:.18;font-size:.85rem}
 .oi-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .oi-head{display:flex;align-items:baseline;gap:5px}
-.oi-name{font-size:.8rem;font-weight:600}
-.oi-brand{font-size:.63rem;color:var(--fog)}
-.oi-sizes{display:flex;gap:5px;flex-wrap:wrap}
+.oi-name{font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oi-brand{font-size:.61rem;color:var(--fog);white-space:nowrap;flex-shrink:0}
+.oi-sizes{display:flex;gap:4px;flex-wrap:wrap}
 .oi-sz{display:flex;align-items:center;gap:4px;background:var(--w);border:1px solid var(--line);border-radius:3px;padding:4px 7px}
-.oi-sz select{width:auto;padding:3px 18px 3px 5px;font-size:.7rem;border:1.5px solid var(--line);border-radius:2px;background:var(--bg)}
-.oi-sz input[type=number]{width:42px;padding:3px 5px;font-size:.75rem;border:1.5px solid var(--line);border-radius:2px;text-align:center;background:var(--bg)}
+.oi-sz select{width:auto;padding:3px 18px 3px 5px;font-size:.69rem;border:1.5px solid var(--line);border-radius:2px;background:var(--bg)}
+.oi-sz input[type=number]{width:38px;padding:3px 4px;font-size:.74rem;border:1.5px solid var(--line);border-radius:2px;text-align:center;background:var(--bg)}
 .oi-sz input[type=number]:focus{box-shadow:none}
-.oi-szp{font-size:.69rem;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
-.oi-rm-sz{width:16px;height:16px;border:none;background:none;cursor:pointer;color:var(--fog);font-size:.63rem;display:flex;align-items:center;justify-content:center;transition:color .12s;flex-shrink:0}
+.oi-szp{font-size:.7rem;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink)}
+.oi-rm-sz{width:15px;height:15px;border:none;background:none;cursor:pointer;color:var(--fog);font-size:.59rem;display:flex;align-items:center;justify-content:center;transition:color .12s;flex-shrink:0;padding:0}
 .oi-rm-sz:hover{color:var(--red)}
-.oi-add-sz{font-size:.66rem;font-weight:600;color:var(--gold);cursor:pointer;background:none;border:1px dashed rgba(184,147,90,.4);padding:3px 8px;border-radius:3px;transition:all .14s;white-space:nowrap}
+.oi-add-sz{font-size:.64rem;font-weight:600;color:var(--gold);cursor:pointer;background:none;border:1px dashed rgba(184,147,90,.4);padding:3px 8px;border-radius:3px;transition:all .14s;white-space:nowrap}
 .oi-add-sz:hover{background:var(--goldl);border-color:var(--gold)}
-.oi-rm{flex-shrink:0;width:24px;height:24px;border:1.5px solid var(--line);background:transparent;cursor:pointer;border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--fog);font-size:.68rem;transition:all .14s}
+.oi-rm{flex-shrink:0;width:24px;height:24px;border:1.5px solid var(--line);background:transparent;cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;color:var(--fog);font-size:.68rem;transition:all .14s;align-self:flex-start}
 .oi-rm:hover{background:var(--red);border-color:var(--red);color:#fff}
+/* client inputs */
 .vend-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-/* summary inside dark box */
-.dl{font-size:.66rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(232,228,220,.3);margin-bottom:4px;display:block}
-.dinput{width:100%;border:1.5px solid var(--linek);background:rgba(232,228,220,.05);color:rgba(232,228,220,.8);font-family:'DM Sans',sans-serif;font-size:.86rem;padding:8px 10px;outline:none;border-radius:3px;transition:border-color .15s}
+.dl{font-size:.63rem;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:rgba(232,228,220,.3);margin-bottom:3px;display:block}
+.dinput{width:100%;border:1.5px solid rgba(232,228,220,.12);background:rgba(232,228,220,.06);color:rgba(232,228,220,.85);font-family:'DM Sans',sans-serif;font-size:.85rem;padding:8px 10px;outline:none;border-radius:3px;transition:border-color .15s}
 .dinput:focus{border-color:rgba(232,228,220,.35)}.dinput::placeholder{color:rgba(232,228,220,.2)}
-.pd-sum{display:flex;flex-direction:column;gap:3px}
-.sum-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(232,228,220,.06);font-size:.75rem;color:rgba(232,228,220,.45)}
+.on-textarea{width:100%;background:rgba(232,228,220,.05);border:1.5px solid rgba(232,228,220,.12);color:rgba(232,228,220,.7);font-family:'DM Sans',sans-serif;font-size:.81rem;padding:9px 11px;border-radius:3px;resize:vertical;min-height:54px}
+.on-textarea:focus{border-color:rgba(232,228,220,.3);outline:none}.on-textarea::placeholder{color:rgba(232,228,220,.2)}
+/* summary */
+.pd-sum{display:flex;flex-direction:column;gap:2px}
+.sum-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(232,228,220,.06);font-size:.73rem;color:rgba(232,228,220,.45)}
 .sum-row span:last-child{font-variant-numeric:tabular-nums;font-weight:500}
 .sum-row.tot{border-top:1px solid rgba(232,228,220,.14);border-bottom:none;padding-top:9px;color:var(--bg);font-weight:600;font-size:.88rem}
-.sum-row.tot span:last-child{color:var(--gold);font-family:'Libre Baskerville',serif;font-size:1rem}
-.sum-row.gan{border-bottom:none;padding-top:4px;color:#84bf9a;font-size:.75rem}
-.sum-empty{font-size:.75rem;color:rgba(232,228,220,.2);padding:6px 0}
-.on-textarea{width:100%;background:rgba(232,228,220,.05);border:1.5px solid var(--linek);color:rgba(232,228,220,.7);font-family:'DM Sans',sans-serif;font-size:.82rem;padding:9px 11px;border-radius:3px;resize:vertical;min-height:56px}
-.on-textarea:focus{border-color:rgba(232,228,220,.3);outline:none}.on-textarea::placeholder{color:rgba(232,228,220,.2)}
-.bord-save{width:100%;padding:12px;background:var(--gold);color:var(--ink);border:none;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.17em;text-transform:uppercase;cursor:pointer;transition:opacity .2s,filter .2s;border-radius:3px;opacity:.35;pointer-events:none}
-.bord-save.ok{opacity:1;pointer-events:auto}.bord-save.ok:hover{filter:brightness(1.08)}
-.bord-cancel{width:100%;padding:9px;background:transparent;color:rgba(232,228,220,.4);border:1.5px solid rgba(232,228,220,.12);font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .15s;display:none}
-.bord-cancel:hover{border-color:rgba(232,228,220,.3);color:rgba(232,228,220,.7)}
-
-/* Pedidos list right col */
-.ped-filter-row{display:flex;align-items:center;gap:8px}
-.ped-filter-row span{font-size:.65rem;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--fog);flex:1}
-.ped-list{display:flex;flex-direction:column;gap:6px}
-.ped-card{background:var(--w);border:1px solid var(--line);border-radius:4px;padding:13px 15px;display:flex;align-items:flex-start;gap:11px;animation:up .3s ease both;border-left:3px solid transparent;transition:box-shadow .2s,border-left-color .15s}
-.ped-card:hover{box-shadow:0 3px 16px rgba(0,0,0,.07)}
-.ped-card.editing{border-left-color:var(--gold);background:rgba(184,147,90,.04)}
-.ped-body{flex:1;min-width:0}
-.ped-header{display:flex;align-items:center;gap:7px;margin-bottom:4px}
-.ped-id{font-size:.58rem;font-weight:700;letter-spacing:.13em;color:var(--fog);background:rgba(30,27,24,.07);padding:2px 6px;border-radius:2px;white-space:nowrap;flex-shrink:0}
-.ped-client{font-size:.86rem;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ped-meta{display:flex;gap:8px;flex-wrap:wrap;font-size:.68rem;color:var(--fog)}
-.ped-nota{font-size:.68rem;color:var(--fog);font-style:italic;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ped-footer{display:flex;align-items:center;gap:7px;margin-top:7px}
-.est-pill{font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:20px;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;flex-shrink:0}
-.est-pill.pendiente{background:rgba(184,147,90,.14);color:var(--gold)}
-.est-pill.terminado{background:rgba(59,107,72,.14);color:var(--grn)}
-.ped-total{font-family:'Libre Baskerville',serif;font-size:.88rem;font-weight:700;margin-left:auto;white-space:nowrap}
-.ped-gan{font-size:.63rem;color:var(--grn);white-space:nowrap}
-.ped-acts{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
-.ped-btn{height:26px;padding:0 8px;border:1.5px solid var(--line);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.6rem;font-weight:600;transition:all .14s;color:var(--fog);border-radius:2px;white-space:nowrap}
-.ped-btn:hover{background:var(--ink);color:#fff;border-color:var(--ink)}.ped-btn.del:hover{background:var(--red);border-color:var(--red)}
-.ped-empty{text-align:center;padding:40px 18px;color:var(--fog);font-style:italic;font-size:.84rem}
+.sum-row.tot span:last-child{color:var(--gold);font-family:'Libre Baskerville',serif;font-size:1.05rem}
+.sum-row.gan{border-bottom:none;padding-top:3px;color:#7dc492;font-size:.72rem}
+.sum-empty{font-size:.73rem;color:rgba(232,228,220,.2);padding:4px 0;font-style:italic}
+/* save */
+.bord-save{width:100%;padding:12px;background:var(--gold);color:var(--ink);border:none;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;transition:opacity .2s,filter .2s;border-radius:3px;opacity:.35;pointer-events:none}
+.bord-save.ok{opacity:1;pointer-events:auto}.bord-save.ok:hover{filter:brightness(1.1)}
+.bord-cancel{width:100%;padding:8px;background:transparent;color:rgba(232,228,220,.32);border:1.5px solid rgba(232,228,220,.09);font-family:'DM Sans',sans-serif;font-size:.63rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .15s;display:none;margin-top:3px}
+.bord-cancel:hover{border-color:rgba(232,228,220,.28);color:rgba(232,228,220,.6)}
+/* pedidos list */
+.ped-filter-row{display:flex;align-items:center;gap:8px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.ped-filter-row h2{font-family:'Libre Baskerville',serif;font-size:.95rem;font-weight:700;flex:1}
+.ped-list{display:flex;flex-direction:column;gap:5px}
+.ped-card{background:var(--w);border:1px solid var(--line);border-radius:6px;padding:12px 14px 10px;display:flex;gap:10px;align-items:stretch;animation:up .28s ease both;border-left:3px solid transparent;transition:box-shadow .2s,border-color .15s}
+.ped-card:hover{box-shadow:0 3px 14px rgba(0,0,0,.07)}
+.ped-card.editing{border-left-color:var(--gold);background:rgba(184,147,90,.03)}
+.ped-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.ped-top{display:flex;align-items:center;gap:7px;margin-bottom:1px}
+.ped-id{font-size:.54rem;font-weight:700;letter-spacing:.12em;color:var(--fog);background:rgba(30,27,24,.07);padding:2px 6px;border-radius:2px;white-space:nowrap;flex-shrink:0}
+.ped-client{font-size:.88rem;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ped-meta{display:flex;gap:8px;flex-wrap:wrap;font-size:.67rem;color:var(--fog)}
+.ped-nota{font-size:.66rem;color:var(--fog);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ped-bottom{display:flex;align-items:center;gap:7px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.ped-total{font-family:'Libre Baskerville',serif;font-size:.94rem;font-weight:700}
+.ped-gan{font-size:.64rem;color:var(--grn);font-weight:600}
+.ped-spacer{flex:1}
+.est-pill{font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:20px;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.est-pill.pendiente{background:rgba(184,147,90,.13);color:#b8935a}
+.est-pill.terminado{background:rgba(59,107,72,.13);color:var(--grn)}
+.ped-acts{display:flex;flex-direction:column;gap:4px;flex-shrink:0;justify-content:center}
+.ped-btn{height:27px;padding:0 10px;border:1.5px solid var(--line);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.6rem;font-weight:600;transition:all .14s;color:var(--fog);border-radius:3px;white-space:nowrap}
+.ped-btn:hover{background:var(--ink);color:#fff;border-color:var(--ink)}.ped-btn.del:hover{background:var(--red);border-color:var(--red);color:#fff}
+.ped-empty{text-align:center;padding:45px 18px;color:var(--fog);font-style:italic;font-size:.84rem;line-height:1.7}
 
 /* MODALS */
 .ov{position:fixed;inset:0;background:rgba(20,18,15,.75);z-index:200;display:none;align-items:center;justify-content:center;padding:14px;backdrop-filter:blur(5px)}
@@ -324,9 +330,16 @@ select.ctrl{cursor:pointer;padding-right:22px;font-weight:500;background-image:u
 
 /* RESPONSIVE */
 @media(max-width:1100px){.lh,.lr{grid-template-columns:30px minmax(100px,2fr) 52px 68px minmax(90px,1.2fr) 12px 60px 60px 60px 118px}}
+@media(max-width:1100px){
+  .pd-main{flex:0 0 58%}
+}
 @media(max-width:900px){
   #vc{flex-direction:column}.col1,.col2{border-right:none;border-bottom:1px solid var(--line)}.col3{min-height:auto}
-  #vpd{flex-direction:column}.pd-left{border-right:none;border-bottom:1px solid var(--line)}.pd-right{min-height:auto}
+  /* Pedidos: stack vertically on tablet */
+  #vpd{flex-direction:column}
+  .pd-main{flex:none}
+  .pd-sidebar{min-height:auto}
+  .pd-inner{grid-template-columns:1fr 1fr}
   .vend-grid{grid-template-columns:1fr}
 }
 @media(max-width:640px){
@@ -338,7 +351,12 @@ select.ctrl{cursor:pointer;padding-right:22px;font-weight:500;background-image:u
   .vtog,.bpdf,.binfl{order:2}
   .tab{padding:11px 10px;font-size:.63rem;letter-spacing:.09em}
   .col{padding:15px 12px;gap:13px}
-  .pd-left,.pd-right{padding:14px 12px}
+  /* Pedidos mobile: single column */
+  .pd-inner{grid-template-columns:1fr}
+  .pd-items-col{border-right:none;border-bottom:1px solid var(--line)}
+  .pd-info-col{padding-bottom:20px}
+  .pd-sidebar{padding:16px 14px}
+  .vend-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -435,67 +453,80 @@ select.ctrl{cursor:pointer;padding-right:22px;font-weight:500;background-image:u
       <select class="ctrl" id="fo" onchange="rcat(document.getElementById('catq').value)"><option value="">Orden</option><option value="name">A→Z</option><option value="price-asc">Precio ↑</option><option value="price-desc">Precio ↓</option><option value="sales">+ Vendidos</option></select>
     </div>
     <div class="vtog"><button class="vb on" id="vg" onclick="vm('g')">⊞</button><button class="vb" id="vl" onclick="vm('l')">☰</button></div>
-    <button class="binfl" onclick="openInflModal()" title="Configuración global de precios">% Inflación</button>
+    <button class="bpdf" onclick="openInflModal()" title="Configuración global de precios" style="background:var(--surf);color:var(--ink);border:1.5px solid var(--line)">%</button>
     <button class="bpdf" onclick="xpdf()">↓ PDF</button>
   </div>
   <div id="cc" class="cgrid"><div class="cempty">Cargando…</div></div>
 </div>
 
-<!-- ══ PEDIDOS 2-col ══ -->
+<!-- ══ PEDIDOS ══ -->
 <div class="view" id="vpd">
-  <!-- Col izquierda: form + resumen -->
-  <div class="pd-left">
-    <div class="pd-form-section">
-      <div>
-        <div class="sl">Nuevo pedido</div>
-        <div class="pdsearch"><span class="pdsrch-ic">🔍</span><input class="ctrl" type="text" id="pdq" placeholder="Buscar perfume en stock…" oninput="pdSearch(this.value)" autocomplete="off"><div class="pddrop" id="pddrop"></div></div>
-      </div>
-      <div>
-        <div class="sl">Items del pedido</div>
-        <div class="order-list" id="olist"><div class="cempty" style="padding:18px 0;font-size:.83rem">Ningún perfume agregado.</div></div>
-      </div>
-      <div>
-        <div class="sl">Datos del cliente</div>
-        <div class="vend-grid">
-          <div class="f"><label>Nombre</label><input type="text" id="vNom" placeholder="María García" oninput="updOrd()"></div>
-          <div class="f"><label>Teléfono</label><input type="tel" id="vTel" placeholder="+54 9 11 0000-0000" oninput="updOrd()"></div>
-          <div class="f"><label>Email</label><input type="email" id="vEmail" placeholder="maria@email.com" oninput="updOrd()"></div>
-          <div class="f"><label>Dirección</label><input type="text" id="vDir" placeholder="Av. Corrientes 1234" oninput="updOrd()"></div>
+
+  <!-- Col principal: carga del pedido (izq items / der info+resumen) -->
+  <div class="pd-main">
+    <div class="pd-inner">
+
+      <!-- Sub-col izquierda: búsqueda + items -->
+      <div class="pd-items-col">
+        <div>
+          <div class="sl">Nuevo pedido</div>
+          <div class="pdsearch">
+            <span class="pdsrch-ic">🔍</span>
+            <input class="ctrl" type="text" id="pdq" placeholder="Buscar perfume en stock…" oninput="pdSearch(this.value)" autocomplete="off">
+            <div class="pddrop" id="pddrop"></div>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+          <div class="sl">Items</div>
+          <div class="order-list" id="olist">
+            <div class="cempty" style="padding:20px 0;font-size:.82rem">Ningún perfume agregado.</div>
+          </div>
         </div>
       </div>
-    </div>
-    <!-- dark summary box -->
-    <div class="pd-summary-box">
-      <div>
-        <div class="sl">Resumen del pedido</div>
-        <div id="psum" class="pd-sum"><div class="sum-empty">Agregá perfumes para ver el resumen.</div></div>
+
+      <!-- Sub-col derecha: cliente + resumen (dark) -->
+      <div class="pd-info-col">
+        <div>
+          <div class="sl">Cliente</div>
+          <div class="vend-grid">
+            <div class="f"><span class="dl">Nombre</span><input class="dinput" type="text" id="vNom" placeholder="María García" oninput="updOrd()"></div>
+            <div class="f"><span class="dl">Teléfono</span><input class="dinput" type="tel" id="vTel" placeholder="+54 9 11…" oninput="updOrd()"></div>
+            <div class="f"><span class="dl">Email</span><input class="dinput" type="email" id="vEmail" placeholder="maria@email.com" oninput="updOrd()"></div>
+            <div class="f"><span class="dl">Dirección</span><input class="dinput" type="text" id="vDir" placeholder="Av. Corrientes 1234" oninput="updOrd()"></div>
+          </div>
+        </div>
+        <div>
+          <div class="sl">Resumen</div>
+          <div id="psum" class="pd-sum"><div class="sum-empty">Agregá perfumes para ver el resumen.</div></div>
+        </div>
+        <div>
+          <span class="dl">Notas del pedido</span>
+          <textarea class="on-textarea" id="vNota" rows="2" placeholder="Observaciones, envío, preferencias…" oninput="updOrd()"></textarea>
+        </div>
+        <div>
+          <span class="dl">Fecha del pedido</span>
+          <input class="dinput" type="date" id="vFecha">
+        </div>
+        <div style="margin-top:auto;padding-top:8px;display:flex;flex-direction:column;gap:5px">
+          <button class="bord-save" id="bordSv" onclick="savePedido()">Guardar pedido</button>
+          <button class="bord-cancel" id="bordCancel" onclick="cancelEdit()">✕ Cancelar edición</button>
+        </div>
       </div>
-      <div>
-        <div class="sl">Notas</div>
-        <textarea class="on-textarea" id="vNota" rows="2" placeholder="Observaciones, envío…" oninput="updOrd()"></textarea>
-      </div>
-      <div>
-        <div class="sl">Fecha</div>
-        <span class="dl">Fecha del pedido</span>
-        <input class="dinput" type="date" id="vFecha">
-      </div>
-      <div style="display:flex;flex-direction:column;gap:7px">
-        <button class="bord-save" id="bordSv" onclick="savePedido()">Guardar pedido</button>
-        <button class="bord-cancel" id="bordCancel" onclick="cancelEdit()">✕ Cancelar edición</button>
-      </div>
+
     </div>
   </div>
 
-  <!-- Col derecha: lista de pedidos -->
-  <div class="pd-right">
+  <!-- Col derecha: listado de pedidos -->
+  <div class="pd-sidebar">
     <div class="ped-filter-row">
-      <span>Pedidos realizados</span>
-      <select class="ctrl" id="plEst" style="width:auto;min-width:120px;height:34px;font-size:.73rem" onchange="renderPedidos()">
+      <h2>Pedidos</h2>
+      <select class="ctrl" id="plEst" style="width:auto;min-width:118px;height:32px;font-size:.72rem" onchange="renderPedidos()">
         <option value="">Todos</option><option value="pendiente">Pendientes</option><option value="terminado">Terminados</option>
       </select>
     </div>
     <div class="ped-list" id="pedGrid"><div class="ped-empty">Cargando pedidos…</div></div>
   </div>
+
 </div>
 
 <!-- DELETE product modal -->
@@ -506,18 +537,16 @@ select.ctrl{cursor:pointer;padding-right:22px;font-weight:500;background-image:u
 
 <!-- INFLACION MODAL -->
 <div class="ov" id="ovInfl">
-  <div class="modal modal-gold" style="max-width:500px">
-    <h3>⚡ Configuración global de precios</h3>
-    <div id="cfgInfo" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
-    <hr style="border:none;border-top:1px solid var(--line)">
-    <p>Ajustá los parámetros globales. Al aplicar, se recalcularán los precios de todos los perfumes del catálogo.</p>
+  <div class="modal modal-gold" style="max-width:400px">
+    <h3>% Actualizar precios</h3>
+    <p id="cfgSubtitle" style="font-size:.79rem;color:var(--fog);line-height:1.55">Cargando configuración…</p>
     <div class="infl-grid">
-      <div class="f"><label>Inflación del mes (%)</label><div class="iw"><input type="number" id="inflVal" step="0.1" placeholder="5.0"><span class="sym r">%</span></div></div>
-      <div class="f"><label>Costo fijo (envase $)</label><div class="iw"><span class="sym l">$</span><input type="number" id="cfVal" class="pl" placeholder="0" min="0"></div></div>
+      <div class="f"><label>Inflación del mes</label><div class="iw"><input type="number" id="inflVal" step="0.1" placeholder="5.0"><span class="sym r">%</span></div></div>
+      <div class="f"><label>Costo fijo envase</label><div class="iw"><span class="sym l">$</span><input type="number" id="cfVal" class="pl" placeholder="0" min="0"></div></div>
     </div>
     <div class="mact">
       <button class="bcx" onclick="cov('ovInfl')">Cancelar</button>
-      <button class="bok gold" onclick="applyInflacion()">Aplicar cambios</button>
+      <button class="bok gold" onclick="applyInflacion()">Aplicar a todos →</button>
     </div>
   </div>
 </div>
@@ -597,7 +626,7 @@ async function sbSavePedido(data){
   if(!rp.ok)throw new Error(await rp.text());
   const saved=await rp.json();const pid=(Array.isArray(saved)?saved[0]:saved).id;
   if(data.items.length){
-    const ri=await fetch(`${SB_URL}/rest/v1/PedidosItems`,{method:'POST',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify(data.items.map(i=>({...i,pedido_id:pid}))));
+    const ri=await fetch(`${SB_URL}/rest/v1/PedidosItems`,{method:'POST',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify(data.items.map(i=>({...i,pedido_id:pid})))});
     if(!ri.ok)throw new Error(await ri.text());
   }
   return pid;
@@ -821,10 +850,12 @@ function fmtDate(iso){if(!iso)return'—';try{return new Date(iso).toLocaleDateS
 function openInflModal(){
   document.getElementById('inflVal').value=CFG.inflacion||'';
   document.getElementById('cfVal').value=CFG.costo_fijo||'';
-  document.getElementById('cfgInfo').innerHTML=`
-    <div class="cfg-row"><div class="cfg-lbl">Inflación actual</div><div class="cfg-val">${CFG.inflacion!=null?CFG.inflacion+'%':'—'}</div><div class="cfg-date">Últ. mod: ${fmtDate(CFG.infl_fecha)}</div></div>
-    <div class="cfg-row"><div class="cfg-lbl">Costo fijo</div><div class="cfg-val">${CFG.costo_fijo!=null?'$'+f(CFG.costo_fijo):'—'}</div><div class="cfg-date">Últ. mod: ${fmtDate(CFG.cf_fecha)}</div></div>
-    <div class="cfg-row"><div class="cfg-lbl">Catálogo</div><div class="cfg-val">${CAT.length} perfumes</div><div class="cfg-date">Se actualizarán todos</div></div>`;
+  const sub=document.getElementById('cfgSubtitle');
+  const parts=[];
+  if(CFG.inflacion!=null)parts.push(`Última inflación: <strong>${CFG.inflacion}%</strong>${CFG.infl_fecha?' · '+fmtDate(CFG.infl_fecha):''}`);
+  if(CFG.costo_fijo!=null)parts.push(`Costo fijo actual: <strong>$${f(CFG.costo_fijo)}</strong>`);
+  parts.push(`<strong>${CAT.length}</strong> perfumes serán actualizados`);
+  sub.innerHTML=parts.join('<br>');
   document.getElementById('ovInfl').classList.add('on');
 }
 async function applyInflacion(){
@@ -860,6 +891,7 @@ function pdSearch(q){
   drop.innerHTML=res.map(p=>`<div class="pdopt" onclick="pdAdd('${p.key}')">
     ${p.img?`<img class="pdopt-img" src="${p.img}">`:`<div class="pdopt-noph">◈</div>`}
     <div class="pdopt-info"><div class="pdopt-name">${p.nombre}</div><div class="pdopt-sub">${[p.marca,p.tipo].filter(Boolean).join(' · ')}</div></div>
+    <div class="pdopt-price">$${f(p.p25)}</div>
   </div>`).join('');
   drop.classList.add('on');
 }
@@ -1005,25 +1037,26 @@ function renderPedidos(){
     const pedJSON=JSON.stringify(p).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
     return`<div class="ped-card${isEditing?' editing':''}">
   <div class="ped-body">
-    <div class="ped-header">
+    <div class="ped-top">
       <span class="ped-id">#${String(p.id).padStart(5,'0')}</span>
       <span class="ped-client">${p.cliente_nombre||'Sin nombre'}</span>
     </div>
     <div class="ped-meta">
       ${p.cliente_tel?`<span>📞 ${p.cliente_tel}</span>`:''}
       ${fecha!=='—'?`<span>📅 ${fecha}</span>`:''}
-      ${p.cliente_email?`<span>✉ ${p.cliente_email}</span>`:''}
+      ${p.cliente_email?`<span style="font-size:.62rem">✉ ${p.cliente_email}</span>`:''}
     </div>
     ${p.notas?`<div class="ped-nota">📝 ${p.notas}</div>`:''}
-    <div class="ped-footer">
+    <div class="ped-bottom">
       <button class="est-pill ${p.estado||'pendiente'}" onclick="toggleEstado(${p.id},'${p.estado||'pendiente'}',event)">${p.estado==='terminado'?'✓ Terminado':'⏳ Pendiente'}</button>
+      <span class="ped-spacer"></span>
       <span class="ped-total">$${f(p.total_venta||0)}</span>
       ${gan>0?`<span class="ped-gan">+$${f(gan)}</span>`:''}
     </div>
   </div>
   <div class="ped-acts">
-    <button class="ped-btn" onclick="startEditPedido(JSON.parse(this.dataset.ped.replace(/&quot;/g,'\\\"')),event)" data-ped="${pedJSON}">✎ Editar</button>
-    <button class="ped-btn del" onclick="deletePedido(${p.id},event)">✕ Eliminar</button>
+    <button class="ped-btn" onclick="startEditPedido(JSON.parse(this.dataset.ped.replace(/&quot;/g,'\\"')),event)" data-ped="${pedJSON}">✎ Editar</button>
+    <button class="ped-btn del" onclick="deletePedido(${p.id},event)">✕</button>
   </div>
 </div>`;}).join('');
 }
