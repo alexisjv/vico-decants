@@ -252,6 +252,15 @@ select.ctrl{cursor:pointer;padding-right:24px;font-weight:500;background-image:u
             </label>
           </div>
         </div>
+        <div class="f">
+          <label>Tipo de perfume</label>
+          <select id="fTipo">
+            <option value="">— Seleccionar —</option>
+            <option value="Arabe">Árabe</option>
+            <option value="Diseñador">Diseñador</option>
+            <option value="Nicho">Nicho</option>
+          </select>
+        </div>
         <div class="f"><label>Link info</label><input type="url" id="fLink" placeholder="https://…"></div>
         <div class="f">
           <label>Stock</label>
@@ -400,26 +409,67 @@ select.ctrl{cursor:pointer;padding-right:24px;font-weight:500;background-image:u
 // ── SUPABASE CONFIG ──
 const SB_URL = 'https://vquszchdeccuoeollwqs.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxdXN6Y2hkZWNjdW9lb2xsd3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5NDM4NDEsImV4cCI6MjA4ODUxOTg0MX0.-qwrB5OJQqcfp6mqMyfSwY6dEW-WtmRy4nPrctCqwOg';
-const TABLE  = 'productos';
+const TABLE  = 'Perfumes';
 
 // ── SUPABASE HELPERS ──
 const SB_HDR = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
 
 async function sbGet(){
-  const r=await fetch(`${SB_URL}/rest/v1/${TABLE}?select=*&order=ts.asc`,{headers:SB_HDR});
+  const r=await fetch(`${SB_URL}/rest/v1/${TABLE}?select=*&order=id.asc`,{headers:SB_HDR});
   if(!r.ok)throw new Error(await r.text());
-  return r.json();
+  const rows=await r.json();
+  // map DB columns → internal format
+  return rows.map(row=>({
+    key:    String(row.key||row.id),
+    dbId:   row.id,
+    codigo: row.type||'',
+    marca:  row.brand||'',
+    nombre: row.name||'',
+    img:    row.img||'',
+    inspo:  row.img_insp||'',
+    link:   row.info||'',
+    stock:  row.stock===false?'out':'in',
+    p25:    row.p25||0,
+    p5:     row.p5||0,
+    p10:    row.p10||0,
+    pl:     row.pl||0,
+    pc:     row.pc||0,
+    tam:    row.size||100,
+    ts:     row.id||0,
+  }));
 }
 async function sbUpsert(p){
+  // map internal format → DB columns
+  const row={
+    code:     p.codigo||'',
+    type:     p.tipo||'',
+    brand:    p.marca||'',
+    name:     p.nombre||'',
+    img:      p.img||'',
+    img_insp: p.inspo||'',
+    info:     p.link||'',
+    stock:    p.stock!=='out',
+    size:     p.tam||100,
+    pl:       p.pl||0,
+    pc:       p.pc||0,
+    p25:      p.p25||0,
+    p5:       p.p5||0,
+    p10:      p.p10||0,
+  };
+  // if editing existing record, include id for upsert
+  if(p.dbId)row.id=p.dbId;
   const r=await fetch(`${SB_URL}/rest/v1/${TABLE}`,{
     method:'POST',
-    headers:{...SB_HDR,'Prefer':'resolution=merge-duplicates'},
-    body:JSON.stringify(p)
+    headers:{...SB_HDR,'Prefer':'resolution=merge-duplicates,return=representation'},
+    body:JSON.stringify(row)
   });
   if(!r.ok)throw new Error(await r.text());
+  const saved=await r.json();
+  // return the DB id so we can store it
+  return Array.isArray(saved)?saved[0]:saved;
 }
-async function sbDelete(key){
-  const r=await fetch(`${SB_URL}/rest/v1/${TABLE}?key=eq.${encodeURIComponent(key)}`,{
+async function sbDelete(dbId){
+  const r=await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(dbId)}`,{
     method:'DELETE',headers:SB_HDR
   });
   if(!r.ok)throw new Error(await r.text());
@@ -453,7 +503,7 @@ const ib={m:'',i:''};
 
 function nextCode(){
   if(!CAT.length)return'00001';
-  const nums=CAT.map(p=>{const n=parseInt(p.codigo);return isNaN(n)?0:n;});
+  const nums=CAT.map(p=>{const n=parseInt(p.codigo||'0');return isNaN(n)?0:n;});
   return String(Math.max(...nums)+1).padStart(5,'0');
 }
 function setNextCode(){document.getElementById('fCod').value=nextCode();}
@@ -561,6 +611,7 @@ function rfm(){
   ['iI','sI'].forEach(id=>document.getElementById(id).style.display='');
   ['iH','sH'].forEach(id=>document.getElementById(id).textContent='Subir foto');
   document.getElementById('fIF').value='';document.getElementById('fIS').value='';
+  document.getElementById('fTipo').value='';
   ['pL','pC'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ce').value='0';document.getElementById('tam').value='100';
   document.getElementById('mg').value='60';document.getElementById('d5').value='5';document.getElementById('d10').value='15';
@@ -579,6 +630,7 @@ async function save(){
   const p={
     key:cod||(mar+'-'+n).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
     codigo:cod,marca:mar,nombre:n,img:ib.m,inspo:ib.i,
+    tipo:document.getElementById('fTipo').value,
     link:document.getElementById('fLink').value.trim(),
     stock:document.getElementById('fStk').value,
     p25:lp.p25,p5:lp.p5,p10:lp.p10,
@@ -591,9 +643,11 @@ async function save(){
   b.textContent='Guardando…';b.style.opacity='.6';b.style.pointerEvents='none';
   sync('Guardando…','loading');
   try{
-    await sbUpsert(p);
+    const saved=await sbUpsert(p);
+    // store DB id for future updates
+    if(saved&&saved.id){p.dbId=saved.id;p.key=String(saved.id);}
     // actualizar cache local
-    const idx=CAT.findIndex(x=>x.key===p.key);
+    const idx=CAT.findIndex(x=>x.key===p.key||(p.dbId&&x.dbId===p.dbId));
     if(idx>=0)CAT[idx]=p;else CAT.push(p);
     ubadge();umf();
     sync('Guardado correctamente','ok');
@@ -611,6 +665,7 @@ function ltc(key){
   document.getElementById('fCod').value=p.codigo||'';
   document.getElementById('fMarca').value=p.marca||'';
   document.getElementById('fNom').value=p.nombre||'';
+  document.getElementById('fTipo').value=p.tipo||'';
   document.getElementById('fLink').value=p.link||'';
   document.getElementById('fKey').value=p.key;stk(p.stock||'in');
   if(p.pl)document.getElementById('pL').value=p.pl;
@@ -698,7 +753,8 @@ document.getElementById('bdk').onclick=async()=>{
   if(!_dk)return;
   sync('Eliminando…','loading');
   try{
-    await sbDelete(_dk);
+    const toDelete=CAT.find(p=>p.key===_dk);
+    await sbDelete(toDelete?toDelete.dbId:_dk);
     CAT=CAT.filter(p=>p.key!==_dk);
     _dk=null;ubadge();umf();cov();
     rcat(document.querySelector('input.ctrl').value||'');
