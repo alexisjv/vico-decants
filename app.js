@@ -3,30 +3,19 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const SB_HDR={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
 
 // STORAGE
+const STO_PUB=`${SB_URL}/storage/v1/object/public/Imagenes`;
 async function sbUploadImage(file){
   const ext=file.name.split('.').pop()||'png';
   const path=Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
   const STO_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
   const up=await fetch(`${SB_URL}/storage/v1/object/Imagenes/${path}`,{method:'POST',headers:{...STO_HDR,'Content-Type':file.type||'image/png'},body:file});
   if(!up.ok)throw new Error('Upload error: '+(await up.text()));
-  const sg=await fetch(`${SB_URL}/storage/v1/object/sign/Imagenes/${path}`,{method:'POST',headers:{...STO_HDR,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:315360000})});
-  if(!sg.ok)throw new Error('Sign error: '+(await sg.text()));
-  const j=await sg.json();
-  return SB_URL+j.signedURL;
+  return `${STO_PUB}/${path}`;
 }
-async function initLogos(){
-  const STO_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-  async function sign(name){
-    try{
-      const r=await fetch(`${SB_URL}/storage/v1/object/sign/Imagenes/${name}`,{method:'POST',headers:STO_HDR,body:JSON.stringify({expiresIn:315360000})});
-      if(!r.ok)return null;const j=await r.json();return SB_URL+j.signedURL;
-    }catch{return null;}
-  }
-  const[logoUrl,igUrl,waUrl,ttUrl]=await Promise.all([sign('vico.png'),sign('instagram.png'),sign('whatsapp.png'),sign('tiktok.png')]);
-  if(logoUrl){LOGO=logoUrl;const el=document.getElementById('login-logo');if(el)el.src=logoUrl;}
-  if(igUrl)IG=igUrl;
-  if(waUrl)WA=waUrl;
-  if(ttUrl)TT=ttUrl;
+function initLogos(){
+  const pub=name=>`${STO_PUB}/${name}`;
+  LOGO=pub('vico.png');IG=pub('instagram.png');WA=pub('whatsapp.png');TT=pub('tiktok.png');
+  const el=document.getElementById('login-logo');if(el)el.src=LOGO;
 }
 let LOGO='',IG='',WA='',TT='';
 const TABLE='Perfumes';
