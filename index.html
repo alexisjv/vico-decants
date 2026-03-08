@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vico Decants</title>
+<title>VICO — Decants</title>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -208,9 +208,74 @@ select.ctrl{cursor:pointer;padding-right:24px;font-weight:500;background-image:u
 .pspin{width:32px;height:32px;border:3px solid rgba(184,147,90,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .72s linear infinite}
 .pload p{color:var(--bg);font-size:.8rem;letter-spacing:.1em}
 
-@media(max-width:880px){#vc{flex-direction:column}.col1,.col2{border-right:none;border-bottom:1px solid var(--line)}}
-@media(max-width:580px){#vcat{padding:12px}.cgrid{grid-template-columns:1fr}.toolbar{flex-wrap:wrap}.search-group{flex-wrap:wrap}}
-@media(max-width:700px){.lh,.lr{grid-template-columns:42px 1fr 65px 65px 65px 120px}}
+
+/* ── RESPONSIVE ── */
+
+/* Tablet portrait & below: stack calc columns */
+@media(max-width:900px){
+  #vc{flex-direction:column}
+  .col1,.col2{border-right:none;border-bottom:1px solid var(--line)}
+  .col3{min-height:auto}
+}
+
+/* Catalog: toolbar wraps gracefully */
+@media(max-width:860px){
+  .toolbar{flex-wrap:wrap;gap:8px}
+  .search-group{flex:1 1 100%;order:2}
+  .search-group>*{flex:1;min-width:0;max-width:none}
+  #csub{order:1;font-size:.7rem}
+  .vtog,.bpdf{order:3}
+}
+
+/* List view: hide price cols, keep essentials */
+@media(max-width:760px){
+  .lh,.lr{grid-template-columns:36px 1fr 70px 130px;padding:0 10px}
+  .lh .lc:nth-child(4),.lh .lc:nth-child(5),
+  .lr .lc:nth-child(4),.lr .lc:nth-child(5){display:none}
+}
+
+/* Mobile */
+@media(max-width:580px){
+  /* catalog layout */
+  #vcat{padding:10px 12px;gap:10px}
+
+  /* toolbar: full width search group, larger controls */
+  .toolbar{flex-wrap:wrap;gap:7px}
+  .search-group{flex:1 1 100%;order:2;flex-wrap:wrap;gap:7px}
+  .search-group>*{flex:1 1 calc(50% - 4px);min-width:0;max-width:none;
+    font-size:.82rem;padding:10px 10px}
+  select.ctrl{font-size:.82rem;padding:10px 28px 10px 10px}
+  input.ctrl{font-size:.82rem;padding:10px 10px}
+  #csub{order:1;align-self:center}
+  .vtog,.bpdf{order:3}
+  .vb{padding:0 13px;font-size:1rem}
+  .bpdf{padding:0 14px;font-size:.72rem}
+
+  /* grid: 1 col */
+  .cgrid{grid-template-columns:1fr}
+
+  /* list: minimal cols on mobile */
+  .lh,.lr{grid-template-columns:34px 1fr 110px;padding:0 8px}
+  .lh .lc:nth-child(3),.lh .lc:nth-child(4),.lh .lc:nth-child(5),
+  .lr .lc:nth-child(3),.lr .lc:nth-child(4),.lr .lc:nth-child(5){display:none}
+  .lh .lc:nth-child(6),.lr .lc:nth-child(6){display:none} /* hide 10ml */
+  .lr-acts{justify-content:flex-end}
+  .bi{height:32px;padding:0 9px;font-size:.68rem}
+
+  /* tabs: smaller padding */
+  .tab{padding:11px 14px;font-size:.68rem;letter-spacing:.12em}
+  .syncbar-inline{padding:0 10px;font-size:.62rem}
+
+  /* calc columns stacked: tighten */
+  .col{padding:18px 14px;gap:14px}
+  .r2{gap:7px}
+}
+
+/* Very small phones */
+@media(max-width:380px){
+  .search-group>*{flex:1 1 100%}
+  .tab{padding:10px 10px;font-size:.62rem;letter-spacing:.08em}
+}
 </style>
 </head>
 <body>
@@ -856,9 +921,8 @@ async function xpdf(){
       const items=cat.filter(p=>(p.marca||'Sin marca')===brand);
       if(curY+7>PAGE_BOT)curY=newpage();
       doc.setFillColor(234,223,200);doc.rect(0,curY,PW,7,'F');
-      doc.setFillColor(184,147,90);doc.rect(0,curY,3,7,'F');
       doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(60,48,32);
-      doc.text(brand.toUpperCase(),ML+6,curY+5);curY+=7;
+      doc.text(brand.toUpperCase(),ML+4,curY+5);curY+=7;
       let alt=0;
       for(const p of items){
         if(curY+ROW_H>PAGE_BOT)curY=newpage();
