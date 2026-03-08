@@ -1,0 +1,2 @@
+# vico-decants
+Inventario
