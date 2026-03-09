@@ -115,6 +115,7 @@ async function setNextCode(){document.getElementById('fCod').value=await fetchNe
 // STATE
 let CAT=[],lp=null,vm_='g';
 const ib={m:'',i:''};
+const pf={m:null,i:null};
 let ORDER=[],PEDIDOS=[],editingPedidoId=null;
 
 // TOAST
@@ -148,7 +149,7 @@ const f=n=>Math.round(n).toLocaleString('es-AR');
 const fd=n=>n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:1});
 function rp(v){if(!document.getElementById('rnd').checked)return v;const t=+document.getElementById('rto').value;return Math.ceil(v/t)*t;}
 function usl(el){el.style.setProperty('--p',((+el.value-+el.min)/(+el.max-+el.min)*100)+'%');}
-async function onF(slot,inp){const file=inp.files[0];if(!file)return;const m=slot==='m';const th=document.getElementById(m?'iT':'sT');const localUrl=URL.createObjectURL(file);th.src=localUrl;th.style.display='block';document.getElementById(m?'iI':'sI').style.display='none';document.getElementById(m?'iH':'sH').textContent='Subiendo…';try{const cod=document.getElementById('fCod').value||'';const url=await sbUploadImage(file,cod,slot);ib[slot]=url;document.getElementById(m?'iH':'sH').textContent=file.name.slice(0,16);}catch(e){document.getElementById(m?'iH':'sH').textContent='Error al subir';toast('Error: '+e.message,'err');ib[slot]='';th.style.display='none';document.getElementById(m?'iI':'sI').style.display='';}}
+function onF(slot,inp){const file=inp.files[0];if(!file)return;const m=slot==='m';const th=document.getElementById(m?'iT':'sT');th.src=URL.createObjectURL(file);th.style.display='block';document.getElementById(m?'iI':'sI').style.display='none';document.getElementById(m?'iH':'sH').textContent=file.name.slice(0,16);pf[slot]=file;}
 function stk(v){document.getElementById('fStk').value=v;document.getElementById('pI').className='pill'+(v==='in'?' in':'');document.getElementById('pO').className='pill'+(v==='out'?' out':'');}
 function cov(id){document.getElementById(id).classList.remove('on');}
 document.querySelectorAll('.ov').forEach(ov=>ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('on');}));
@@ -174,7 +175,7 @@ function calc(){
 function rst(){lp=null;['25','5','10'].forEach(id=>{['p','c','g','m'].forEach(p=>{const el=document.getElementById(p+id);if(el)el.textContent='—';});document.getElementById('rc'+id).classList.remove('on','best');});document.getElementById('det').innerHTML='<div class="ei">Ingresá los datos para ver el resumen.</div>';document.getElementById('bsv').classList.remove('ok');document.getElementById('bsv').textContent='Guardar en catálogo';}
 function rfm(){
   ['fMarca','fNom','fLink'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('fDbId').value='';document.getElementById('fTipo').value='';stk('in');ib.m='';ib.i='';
+  document.getElementById('fDbId').value='';document.getElementById('fTipo').value='';stk('in');ib.m='';ib.i='';pf.m=null;pf.i=null;
   ['iT','sT'].forEach(id=>{const e=document.getElementById(id);e.style.display='none';e.src='';});
   ['iI','sI'].forEach(id=>document.getElementById(id).style.display='');
   ['iH','sH'].forEach(id=>document.getElementById(id).textContent='Subir foto');
@@ -196,6 +197,9 @@ async function save(){
   const b=document.getElementById('bsv');b.textContent='Guardando…';b.style.opacity='.5';b.style.pointerEvents='none';
   syncToast('Guardando…','loading');
   try{
+    const cod=document.getElementById('fCod').value||'';
+    if(pf.m){p.img=await sbUploadImage(pf.m,cod,'m');ib.m=p.img;}
+    if(pf.i){p.inspo=await sbUploadImage(pf.i,cod,'i');ib.i=p.inspo;}
     const saved=await sbUpsert(p);p.dbId=saved.id;p.key=String(saved.id);
     const idx=CAT.findIndex(x=>x.dbId===p.dbId);if(idx>=0)CAT[idx]=p;else CAT.push(p);
     ubadge();umf();syncToast(idx>=0?'Actualizado':'Guardado','ok');
