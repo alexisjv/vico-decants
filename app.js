@@ -725,21 +725,33 @@ async function renderDashboard(){
   const CO={responsive:true,maintainAspectRatio:true};
   const tickC={color:'#7a7268',font:{size:10,family:'Inter'}};
   const gridC={color:'rgba(30,27,24,.06)'};
-  // Chart 1: Monthly bar
-  _charts.m=new Chart(document.getElementById('chMensual'),{type:'bar',data:{labels:months.map(m=>m.label),datasets:[{label:'Ventas',data:mV,backgroundColor:'rgba(184,147,90,.72)',borderRadius:4},{label:'Ganancia',data:mG,backgroundColor:'rgba(59,107,72,.65)',borderRadius:4}]},options:{...CO,plugins:{legend:{labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12}}},scales:{x:{ticks:tickC,grid:gridC},y:{ticks:{...tickC,callback:v=>'$'+f(v)},grid:gridC}}}});
-  // Chart 2: Estado doughnut
-  _charts.e=new Chart(document.getElementById('chEstado'),{type:'doughnut',data:{labels:['Pendientes','Terminados'],datasets:[{data:[pend,term],backgroundColor:['rgba(184,147,90,.72)','rgba(59,107,72,.65)'],borderWidth:0,hoverOffset:4}]},options:{...CO,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12,padding:10}}}}});
-  // Chart 3: Top 5 perfumes — from PedidosItems of terminated orders
-  const termIds=PEDIDOS.filter(p=>p.estado==='terminado').map(p=>p.id);
-  let top=[];
-  if(termIds.length){
+  // Chart 1: Monthly line (ventas y ganancias)
+  _charts.m=new Chart(document.getElementById('chMensual'),{type:'line',data:{labels:months.map(m=>m.label),datasets:[{label:'Ventas',data:mV,borderColor:'rgba(184,147,90,.9)',backgroundColor:'rgba(184,147,90,.08)',tension:.35,fill:true,pointRadius:4,pointBackgroundColor:'rgba(184,147,90,.9)'},{label:'Ganancia',data:mG,borderColor:'rgba(59,107,72,.85)',backgroundColor:'rgba(59,107,72,.06)',tension:.35,fill:true,pointRadius:4,pointBackgroundColor:'rgba(59,107,72,.85)'}]},options:{...CO,plugins:{legend:{labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12}}},scales:{x:{ticks:tickC,grid:gridC},y:{ticks:{...tickC,callback:v=>'$'+f(v)},grid:gridC}}}});
+  // Chart 2: Estado de pedidos — simple HTML panel
+  const estEl=document.getElementById('chEstado');
+  if(pend===0){
+    estEl.innerHTML=`<div class="est-ok"><span class="est-ico">✓</span><div><div class="est-title">Todo al día</div><div class="est-sub">Sin pedidos pendientes</div></div></div>`;
+  }else{
+    const pendList=PEDIDOS.filter(p=>p.estado==='pendiente');
+    estEl.innerHTML=`<div class="est-warn"><div class="est-warn-head"><span class="est-ico">!</span><div><div class="est-title">${pend} pedido${pend!==1?'s':''} pendiente${pend!==1?'s':''}</div><div class="est-sub">Revisá la pestaña Pedidos</div></div></div><ul class="est-list">${pendList.slice(0,5).map(p=>`<li>#${String(p.id).padStart(5,'0')} · ${p.cliente_nombre||'Sin nombre'}</li>`).join('')}${pendList.length>5?`<li style="opacity:.5">+${pendList.length-5} más…</li>`:''}</ul></div>`;
+  }
+  // Chart 3: Top 5 perfumes — from PedidosItems of all orders
+  const allIds=PEDIDOS.map(p=>p.id);
+  let top=[],decantRows=[];
+  if(allIds.length){
     try{
-      const r=await fetch(`${SB_URL}/rest/v1/PedidosItems?pedido_id=in.(${termIds.join(',')})&select=perfume_nombre,qty`,{headers:SB_HDR});
+      const r=await fetch(`${SB_URL}/rest/v1/PedidosItems?pedido_id=in.(${allIds.join(',')})&select=perfume_nombre,ml,qty`,{headers:SB_HDR});
       if(r.ok){
         const rows=await r.json();
-        const agg={};
-        rows.forEach(it=>{const k=it.perfume_nombre||'?';agg[k]=(agg[k]||0)+(it.qty||1);});
-        top=Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n,q])=>({nombre:n,qty:q}));
+        const aggTop={},aggDec={};
+        rows.forEach(it=>{
+          const k=it.perfume_nombre||'?';
+          aggTop[k]=(aggTop[k]||0)+(it.qty||1);
+          const dk=`${k} · ${it.ml||'?'}ml`;
+          aggDec[dk]=(aggDec[dk]||0)+(it.qty||1);
+        });
+        top=Object.entries(aggTop).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n,q])=>({nombre:n,qty:q}));
+        decantRows=Object.entries(aggDec).sort((a,b)=>b[1]-a[1]).slice(0,15).map(([n,q])=>({nombre:n,qty:q}));
       }
     }catch{}
   }
@@ -748,6 +760,8 @@ async function renderDashboard(){
   const tipos=[{l:'Nicho',v:'Nicho'},{l:'Diseñador',v:'Diseñador'},{l:'Árabe',v:'Arabe'}];
   const tData=tipos.map(t=>CAT.filter(p=>p.tipo===t.v).length);
   _charts.tp=new Chart(document.getElementById('chTipo'),{type:'doughnut',data:{labels:tipos.map(t=>t.l),datasets:[{data:tData,backgroundColor:['rgba(184,147,90,.72)','rgba(59,107,72,.65)','rgba(90,120,184,.65)'],borderWidth:0,hoverOffset:4}]},options:{...CO,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12,padding:10}}}}});
+  // Chart 5: Decants por perfume+tamaño
+  _charts.d=new Chart(document.getElementById('chDecants'),{type:'bar',data:{labels:decantRows.map(p=>p.nombre.length>30?p.nombre.slice(0,28)+'…':p.nombre),datasets:[{label:'Unidades',data:decantRows.map(p=>p.qty),backgroundColor:'rgba(90,120,184,.65)',borderRadius:4}]},options:{...CO,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{...tickC,stepSize:1},grid:gridC},y:{ticks:{...tickC,font:{size:9,family:'Inter'}},grid:{display:false}}}}});
 }
 
 // INIT
