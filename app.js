@@ -104,6 +104,11 @@ async function sbGetPedidos(){
 async function sbUpdateEstado(id,estado){
   await fetch(`${SB_URL}/rest/v1/Pedidos?id=eq.${id}`,{method:'PATCH',headers:SB_HDR,body:JSON.stringify({estado})});
 }
+async function sbGetPedidoItems(id){
+  const r=await fetch(`${SB_URL}/rest/v1/PedidosItems?pedido_id=eq.${id}&select=*`,{headers:SB_HDR});
+  if(!r.ok)throw new Error(await r.text());
+  return await r.json();
+}
 async function fetchNextCode(){
   try{const r=await fetch(`${SB_URL}/rest/v1/${TABLE}?select=id&order=id.desc&limit=1`,{headers:SB_HDR});const rows=await r.json();return String(rows.length?rows[0].id+1:1).padStart(5,'0');}
   catch{return String(CAT.length?Math.max(...CAT.map(p=>p.dbId||0))+1:1).padStart(5,'0');}
@@ -135,10 +140,11 @@ function sv(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById(id).classList.add('on');
-  const idx={vc:0,vcat:1,vpd:2}[id]||0;
+  const idx={vc:0,vcat:1,vpd:2,vdash:3}[id]||0;
   document.querySelectorAll('.tab')[idx].classList.add('on');
   if(id==='vcat')rcat(document.getElementById('catq').value||'');
   if(id==='vpd'){const d=document.getElementById('vFecha');if(!d.value)d.value=new Date().toISOString().slice(0,10);renderPedidos();}
+  if(id==='vdash')renderDashboard();
 }
 function vm(m){vm_=m;document.getElementById('vg').classList.toggle('on',m==='g');document.getElementById('vl').classList.toggle('on',m==='l');rcat(document.getElementById('catq').value||'');}
 
@@ -446,7 +452,7 @@ async function savePedido(){
   }
 }
 
-function startEditPedido(ped,ev){
+async function startEditPedido(ped,ev){
   ev.stopPropagation();
   editingPedidoId=ped.id;
   document.getElementById('vNom').value=ped.cliente_nombre||'';
@@ -455,13 +461,24 @@ function startEditPedido(ped,ev){
   document.getElementById('vDir').value=ped.cliente_dir||'';
   document.getElementById('vNota').value=ped.notas||'';
   document.getElementById('vFecha').value=ped.fecha||new Date().toISOString().slice(0,10);
-  ORDER=[];renderOrder();
+  ORDER=[];
+  syncToast('Cargando items…','loading');
+  try{
+    const items=await sbGetPedidoItems(ped.id);
+    for(const it of items){
+      const p=CAT.find(x=>x.dbId===it.perfume_id)||{key:String(it.perfume_id),dbId:it.perfume_id,nombre:it.perfume_nombre||'?',marca:'',img:'',p25:it.ml===2.5?it.precio_unit:0,p5:it.ml===5?it.precio_unit:0,p10:it.ml===10?it.precio_unit:0,pc:0,tam:100,ce:0};
+      const ex=ORDER.find(o=>o.perf.dbId===it.perfume_id);
+      if(ex)ex.sizes.push({ml:it.ml,qty:it.qty});
+      else ORDER.push({perf:p,sizes:[{ml:it.ml,qty:it.qty}]});
+    }
+    syncToast('Editando #'+String(ped.id).padStart(5,'0'),'info',3500);
+  }catch(e){syncToast('Error al cargar items','err');}
+  renderOrder();
   const btn=document.getElementById('bordSv');btn.classList.add('ok');btn.textContent='Actualizar pedido →';
   document.getElementById('bordCancel').style.display='block';
   renderPedidos();
   if(!document.getElementById('vpd').classList.contains('on'))sv('vpd');
-  setTimeout(()=>{document.querySelector('.pd-items-col').scrollTop=0;document.getElementById('pdq').focus();},120);
-  syncToast('Editando #'+String(ped.id).padStart(5,'0')+' — agregá los items del pedido.','info',5000);
+  setTimeout(()=>{document.querySelector('.pd-items-col').scrollTop=0;},120);
 }
 
 let _delPedId=null;
@@ -498,26 +515,25 @@ function renderPedidos(){
     const fecha=p.fecha?new Date(p.fecha+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'}):'';
     const isEditing=editingPedidoId===p.id;
     const pedJSON=JSON.stringify(p).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const est=p.estado||'pendiente';
+    const estIcon=est==='terminado'?'✓ Listo':'◌ Pendiente';
     return`<div class="ped-card${isEditing?' editing':''}">
-  <div class="ped-body">
-    <div class="ped-row1">
-      <span class="ped-id">#${String(p.id).padStart(5,'0')}</span>
-      <span class="ped-client">${p.cliente_nombre||'Sin nombre'}</span>
-      <button class="est-pill ${p.estado||'pendiente'}" onclick="toggleEstado(${p.id},'${p.estado||'pendiente'}',event)">${p.estado==='terminado'?'✓':'⏳'}</button>
-    </div>
-    <div class="ped-row2">
-      ${p.cliente_tel?`<span>${p.cliente_tel}</span>`:''}
-      ${fecha?`<span>${fecha}</span>`:''}
-    </div>
-    ${p.notas?`<div class="ped-nota">${p.notas}</div>`:''}
-    <div class="ped-row3">
-      <span class="ped-total">$${f(p.total_venta||0)}</span>
-      ${gan>0?`<span class="ped-gan">+$${f(gan)}</span>`:''}
-    </div>
+  <div class="ped-head">
+    <span class="ped-id">#${String(p.id).padStart(5,'0')}</span>
+    <span class="ped-client">${p.cliente_nombre||'Sin nombre'}</span>
+    <button class="est-pill ${est}" onclick="toggleEstado(${p.id},'${est}',event)">${estIcon}</button>
   </div>
-  <div class="ped-actions">
-    <button class="ped-btn" onclick="startEditPedido(JSON.parse(this.dataset.ped.replace(/&quot;/g,'\\\"')),event)" data-ped="${pedJSON}">✎ Editar</button>
-    <button class="ped-btn del" onclick="deletePedido(${p.id},event)">✕</button>
+  ${(p.cliente_tel||fecha)?`<div class="ped-meta">${[p.cliente_tel,fecha].filter(Boolean).join(' · ')}</div>`:''}
+  ${p.notas?`<div class="ped-nota">${p.notas}</div>`:''}
+  <div class="ped-foot">
+    <div class="ped-pricing">
+      <span class="ped-total">$${f(p.total_venta||0)}</span>
+      ${gan>0?`<span class="ped-gan">+$${f(gan)} gan.</span>`:''}
+    </div>
+    <div class="ped-acts-row">
+      <button class="ped-btn" onclick="startEditPedido(JSON.parse(this.dataset.ped.replace(/&quot;/g,'\\\"')),event)" data-ped="${pedJSON}">✎ Editar</button>
+      <button class="ped-btn del" onclick="deletePedido(${p.id},event)">✕</button>
+    </div>
   </div>
 </div>`;}).join('');
 }
@@ -595,18 +611,24 @@ async function xpdf(){
     }
 
     function foot(n){doc.setFillColor(36,34,30);doc.rect(0,PH-7,PW,7,'F');doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(120,114,108);doc.text(String(n),PW/2,PH-2.5,{align:'center'});}
-    function newpage(){foot(pg++);doc.addPage();hdr();return thead(TBL_TOP);}
+    function newpage(){foot(pg++);doc.addPage();return thead(8);}
 
     hdr();curY=thead(TBL_TOP);
     const BG=[250,248,244];
     const BG_OUT=[205,202,198];
-    const brands=[...new Set(CAT.map(p=>p.marca||'Sin marca'))];
+    // Sort catalog: Nicho → Diseñador → Árabe → rest, then by brand
+    function tipoRank(t){const n=(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();if(n==='nicho')return 0;if(n==='disenador')return 1;if(n==='arabe')return 2;return 3;}
+    const catSorted=[...CAT].sort((a,b)=>{const d=tipoRank(a.tipo)-tipoRank(b.tipo);return d||((a.marca||'').localeCompare(b.marca||'','es'));});
+    const brandsSeen=new Set();const brandList=[];
+    for(const p of catSorted){const m=p.marca||'Sin marca';if(!brandsSeen.has(m)){brandsSeen.add(m);brandList.push(m);}}
 
-    for(const brand of brands){
-      const items=CAT.filter(p=>(p.marca||'Sin marca')===brand);
+    for(const brand of brandList){
+      const items=catSorted.filter(p=>(p.marca||'Sin marca')===brand);
       if(curY+7>PAGE_BOT)curY=newpage();
-      // brand header row
+      // brand header row with left/right borders
       doc.setFillColor(232,221,198);doc.rect(M,curY,TW,7,'F');
+      doc.setDrawColor(185,180,174);doc.setLineWidth(.25);
+      doc.line(M,curY,M,curY+7);doc.line(M+TW,curY,M+TW,curY+7);
       doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setCharSpace(.5);doc.setTextColor(55,44,28);
       doc.text(brand.toUpperCase(),M+3,curY+5.2,{align:'left'});
       doc.setCharSpace(0);curY+=7;
@@ -653,6 +675,9 @@ async function xpdf(){
             ai(insD,inx,iny,IMG_W,IMG_H);
             try{doc.saveGraphicsState();if(doc.setGState)doc.setGState(doc.GState({opacity:.45}));doc.setFillColor(rr,rg,rb);doc.rect(inx,iny,IMG_W,IMG_H,'F');doc.restoreGraphicsState();}catch{doc.setFillColor(rr,rg,rb);doc.rect(inx,iny,IMG_W,IMG_H,'F');}
           }else{ai(insD,inx,iny,IMG_W,IMG_H);}
+        }else{
+          doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(180,175,170);
+          doc.text('—',cx('inspo'),midY,{align:'center'});
         }
 
         // link — centered, narrow col
@@ -674,6 +699,44 @@ async function xpdf(){
   finally{document.getElementById('pl').classList.remove('on');}
 }
 
+
+// ── DASHBOARD ──
+let _charts={};
+async function renderDashboard(){
+  if(!window.Chart){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  // KPIs
+  const totalV=PEDIDOS.reduce((s,p)=>s+(p.total_venta||0),0);
+  const totalC=PEDIDOS.reduce((s,p)=>s+(p.total_costo||0),0);
+  const pend=PEDIDOS.filter(p=>p.estado==='pendiente').length;
+  const term=PEDIDOS.filter(p=>p.estado==='terminado').length;
+  document.getElementById('dKpiPedidos').textContent=PEDIDOS.length;
+  document.getElementById('dKpiVenta').textContent='$'+f(totalV);
+  document.getElementById('dKpiGan').textContent='$'+f(totalV-totalC);
+  document.getElementById('dKpiPend').textContent=pend;
+  // Monthly data (last 6 months)
+  const months=[];const now=new Date();
+  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({label:d.toLocaleDateString('es-AR',{month:'short',year:'2-digit'}),key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`});}
+  const mV=months.map(m=>PEDIDOS.filter(p=>p.fecha&&p.fecha.startsWith(m.key)).reduce((s,p)=>s+(p.total_venta||0),0));
+  const mG=months.map(m=>PEDIDOS.filter(p=>p.fecha&&p.fecha.startsWith(m.key)).reduce((s,p)=>s+(p.total_venta||0)-(p.total_costo||0),0));
+  // Destroy old charts
+  Object.values(_charts).forEach(c=>{try{c.destroy();}catch{}});_charts={};
+  const CO={responsive:true,maintainAspectRatio:true};
+  const tickC={color:'#7a7268',font:{size:10,family:'Inter'}};
+  const gridC={color:'rgba(30,27,24,.06)'};
+  // Chart 1: Monthly bar
+  _charts.m=new Chart(document.getElementById('chMensual'),{type:'bar',data:{labels:months.map(m=>m.label),datasets:[{label:'Ventas',data:mV,backgroundColor:'rgba(184,147,90,.72)',borderRadius:4},{label:'Ganancia',data:mG,backgroundColor:'rgba(59,107,72,.65)',borderRadius:4}]},options:{...CO,plugins:{legend:{labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12}}},scales:{x:{ticks:tickC,grid:gridC},y:{ticks:{...tickC,callback:v=>'$'+f(v)},grid:gridC}}}});
+  // Chart 2: Estado doughnut
+  _charts.e=new Chart(document.getElementById('chEstado'),{type:'doughnut',data:{labels:['Pendientes','Terminados'],datasets:[{data:[pend,term],backgroundColor:['rgba(184,147,90,.72)','rgba(59,107,72,.65)'],borderWidth:0,hoverOffset:4}]},options:{...CO,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12,padding:10}}}}});
+  // Chart 3: Top 5 perfumes
+  const top=[...CAT].sort((a,b)=>(b.sales||0)-(a.sales||0)).slice(0,5);
+  _charts.t=new Chart(document.getElementById('chTop'),{type:'bar',data:{labels:top.map(p=>p.nombre.length>22?p.nombre.slice(0,20)+'…':p.nombre),datasets:[{label:'Vendidos',data:top.map(p=>p.sales||0),backgroundColor:'rgba(184,147,90,.72)',borderRadius:4}]},options:{...CO,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{...tickC,stepSize:1},grid:gridC},y:{ticks:{...tickC},grid:{display:false}}}}});
+  // Chart 4: Catálogo por tipo
+  const tipos=[{l:'Nicho',v:'Nicho'},{l:'Diseñador',v:'Diseñador'},{l:'Árabe',v:'Arabe'}];
+  const tData=tipos.map(t=>CAT.filter(p=>p.tipo===t.v).length);
+  _charts.tp=new Chart(document.getElementById('chTipo'),{type:'doughnut',data:{labels:tipos.map(t=>t.l),datasets:[{data:tData,backgroundColor:['rgba(184,147,90,.72)','rgba(59,107,72,.65)','rgba(90,120,184,.65)'],borderWidth:0,hoverOffset:4}]},options:{...CO,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12,padding:10}}}}});
+}
 
 // INIT
 document.querySelectorAll('input[type=range]').forEach(usl);
