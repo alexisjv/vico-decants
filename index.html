@@ -178,41 +178,48 @@
 <!-- ══ DASHBOARD ══ -->
 <div class="view" id="vdash">
   <div class="dash-wrap">
+    <!-- Fila 1: KPI cards -->
     <div class="dash-kpis">
       <div class="dash-kpi">
         <div class="dkpi-l">Pedidos totales</div>
         <div class="dkpi-v" id="dKpiPedidos">—</div>
       </div>
       <div class="dash-kpi">
-        <div class="dkpi-l">Ventas totales</div>
-        <div class="dkpi-v" id="dKpiVenta">—</div>
-      </div>
-      <div class="dash-kpi">
-        <div class="dkpi-l">Ganancia total</div>
-        <div class="dkpi-v grn" id="dKpiGan">—</div>
-      </div>
-      <div class="dash-kpi">
-        <div class="dkpi-l">Pedidos pendientes</div>
+        <div class="dkpi-l">Pendientes</div>
         <div class="dkpi-v gold" id="dKpiPend">—</div>
       </div>
+      <div class="dash-kpi">
+        <div class="dkpi-l">Completados</div>
+        <div class="dkpi-v grn" id="dKpiTerm">—</div>
+      </div>
+      <div class="dash-kpi dash-kpi-est" id="dKpiEstado"></div>
     </div>
     <div class="dash-charts">
+      <!-- Fila 2: Línea + Ventas/Ganancia -->
       <div class="dash-cbox dash-span2">
         <div class="dash-title">Ventas y ganancias por mes</div>
         <canvas id="chMensual" height="110"></canvas>
       </div>
-      <div class="dash-cbox">
-        <div class="dash-title">Estado de pedidos</div>
-        <div id="chEstado"></div>
+      <div class="dash-money-col">
+        <div class="dash-cbox">
+          <div class="dkpi-l">Ventas totales</div>
+          <div class="dkpi-v" id="dKpiVenta">—</div>
+        </div>
+        <div class="dash-cbox">
+          <div class="dkpi-l">Ganancia total</div>
+          <div class="dkpi-v grn" id="dKpiGan">—</div>
+        </div>
       </div>
+      <!-- Fila 3: Top perfumes + Tipo -->
       <div class="dash-cbox dash-span2">
         <div class="dash-title">Top 5 perfumes más vendidos</div>
-        <canvas id="chTop" height="150"></canvas>
+        <canvas id="chTop" height="160"></canvas>
       </div>
       <div class="dash-cbox">
         <div class="dash-title">Catálogo por tipo</div>
         <canvas id="chTipo"></canvas>
       </div>
+      <!-- Fila 4: Decants por perfume y tamaño -->
       <div class="dash-cbox dash-span3">
         <div class="dash-title">Decants vendidos por perfume y tamaño</div>
         <canvas id="chDecants" height="80"></canvas>
