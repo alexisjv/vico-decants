@@ -1,5 +1,5 @@
-const SB_URL='https://vquszchdeccuoeollwqs.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxdXN6Y2hkZWNjdW9lb2xsd3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5NDM4NDEsImV4cCI6MjA4ODUxOTg0MX0.-qwrB5OJQqcfp6mqMyfSwY6dEW-WtmRy4nPrctCqwOg';
+const SB_URL=CONFIG.SB_URL;
+const SB_KEY=CONFIG.SB_KEY;
 const SB_HDR={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
 
 // STORAGE
