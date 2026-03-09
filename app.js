@@ -4,10 +4,10 @@ const SB_HDR={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':
 
 // STORAGE
 const STO_PUB=`${SB_URL}/storage/v1/object/public/Imagenes`;
-async function sbUploadImage(file){
+async function sbUploadImage(file,codigo='',slot=''){
   const ext=file.name.split('.').pop()||'png';
-  const path=Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
-  const STO_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+  const path=codigo?(codigo+(slot?'_'+slot:'')+'.'+ext):(Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext);
+  const STO_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'x-upsert':'true'};
   const up=await fetch(`${SB_URL}/storage/v1/object/Imagenes/${path}`,{method:'POST',headers:{...STO_HDR,'Content-Type':file.type||'image/png'},body:file});
   if(!up.ok)throw new Error('Upload error: '+(await up.text()));
   return `${STO_PUB}/${path}`;
@@ -148,7 +148,7 @@ const f=n=>Math.round(n).toLocaleString('es-AR');
 const fd=n=>n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:1});
 function rp(v){if(!document.getElementById('rnd').checked)return v;const t=+document.getElementById('rto').value;return Math.ceil(v/t)*t;}
 function usl(el){el.style.setProperty('--p',((+el.value-+el.min)/(+el.max-+el.min)*100)+'%');}
-async function onF(slot,inp){const file=inp.files[0];if(!file)return;const m=slot==='m';const th=document.getElementById(m?'iT':'sT');const localUrl=URL.createObjectURL(file);th.src=localUrl;th.style.display='block';document.getElementById(m?'iI':'sI').style.display='none';document.getElementById(m?'iH':'sH').textContent='Subiendo…';try{const url=await sbUploadImage(file);ib[slot]=url;document.getElementById(m?'iH':'sH').textContent=file.name.slice(0,16);}catch(e){document.getElementById(m?'iH':'sH').textContent='Error al subir';toast('Error: '+e.message,'err');ib[slot]='';th.style.display='none';document.getElementById(m?'iI':'sI').style.display='';}}
+async function onF(slot,inp){const file=inp.files[0];if(!file)return;const m=slot==='m';const th=document.getElementById(m?'iT':'sT');const localUrl=URL.createObjectURL(file);th.src=localUrl;th.style.display='block';document.getElementById(m?'iI':'sI').style.display='none';document.getElementById(m?'iH':'sH').textContent='Subiendo…';try{const cod=document.getElementById('fCod').value||'';const url=await sbUploadImage(file,cod,slot);ib[slot]=url;document.getElementById(m?'iH':'sH').textContent=file.name.slice(0,16);}catch(e){document.getElementById(m?'iH':'sH').textContent='Error al subir';toast('Error: '+e.message,'err');ib[slot]='';th.style.display='none';document.getElementById(m?'iI':'sI').style.display='';}}
 function stk(v){document.getElementById('fStk').value=v;document.getElementById('pI').className='pill'+(v==='in'?' in':'');document.getElementById('pO').className='pill'+(v==='out'?' out':'');}
 function cov(id){document.getElementById(id).classList.remove('on');}
 document.querySelectorAll('.ov').forEach(ov=>ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('on');}));
