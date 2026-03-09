@@ -590,7 +590,7 @@ async function xpdf(){
       return y+TH_H;
     }
 
-    function foot(n){doc.setFillColor(36,34,30);doc.rect(0,PH-7,PW,7,'F');doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(120,114,108);doc.text(String(n),PW/2,PH-2.5,{align:'center'});const fSZ=5,fY=(PH-7)+(7-fSZ)/2;soc.forEach((s,i)=>{const fx=M+i*(fSZ+3);if(s.d)ai(s.d,fx,fY,fSZ,fSZ);});}
+    function foot(n){doc.setFillColor(36,34,30);doc.rect(0,PH-7,PW,7,'F');doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(120,114,108);doc.text(String(n),PW/2,PH-2.5,{align:'center'});}
     function newpage(){foot(pg++);doc.addPage();hdr();return thead(TBL_TOP);}
 
     hdr();curY=thead(TBL_TOP);
