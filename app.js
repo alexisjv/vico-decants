@@ -1,5 +1,5 @@
-const SB_URL='https://vquszchdeccuoeollwqs.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxdXN6Y2hkZWNjdW9lb2xsd3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5NDM4NDEsImV4cCI6MjA4ODUxOTg0MX0.-qwrB5OJQqcfp6mqMyfSwY6dEW-WtmRy4nPrctCqwOg';
+const SB_URL=CONFIG.SB_URL;
+const SB_KEY=CONFIG.SB_KEY;
 const SB_HDR={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
 
 // STORAGE
@@ -21,13 +21,12 @@ let LOGO='',IG='',WA='',TT='';
 const TABLE='Perfumes';
 
 // CONFIG
-let CFG={password:'',inflacion:0,costo_fijo:0,infl_fecha:'',cf_fecha:''};
+let CFG={inflacion:0,costo_fijo:0,infl_fecha:'',cf_fecha:''};
 async function loadConfig(){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/Configuracion?select=*`,{headers:SB_HDR});
     if(!r.ok)throw 0;
     (await r.json()).forEach(row=>{
-      if(row.descripcion==='password')  CFG.password=row.valor||'';
       if(row.descripcion==='inflacion') {CFG.inflacion=parseFloat(row.valor)||0;CFG.infl_fecha=row.fecha_modificacion||'';}
       if(row.descripcion==='costo_fijo'){CFG.costo_fijo=parseFloat(row.valor)||0;CFG.cf_fecha=row.fecha_modificacion||'';}
     });
@@ -43,8 +42,7 @@ async function saveConfigVal(desc,val){
 async function doLogin(){
   const v=document.getElementById('lpwd').value;
   const e=document.getElementById('lerr');
-  if(!CFG.password)await loadConfig();
-  if(v===CFG.password){
+  if(v===CONFIG.PASSWORD){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('nav').style.display='flex';
     sv('vc'); loadDB(); loadPedidos(); e.style.display='none';
