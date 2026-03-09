@@ -618,7 +618,7 @@ async function xpdf(){
     const BG_OUT=[205,202,198];
     // Sort catalog: Nicho → Diseñador → Árabe → rest, then by brand
     function tipoRank(t){const n=(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();if(n==='nicho')return 0;if(n==='disenador')return 1;if(n==='arabe')return 2;return 3;}
-    const catSorted=[...CAT].sort((a,b)=>{const d=tipoRank(a.tipo)-tipoRank(b.tipo);return d||((a.marca||'').localeCompare(b.marca||'','es'));});
+    const catSorted=[...CAT].sort((a,b)=>tipoRank(a.tipo)-tipoRank(b.tipo));
     const brandsSeen=new Set();const brandList=[];
     for(const p of catSorted){const m=p.marca||'Sin marca';if(!brandsSeen.has(m)){brandsSeen.add(m);brandList.push(m);}}
 
