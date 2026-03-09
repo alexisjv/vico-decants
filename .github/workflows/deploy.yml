@@ -29,6 +29,7 @@ jobs:
           const CONFIG = {
             SB_URL: '${{ secrets.SB_URL }}',
             SB_KEY: '${{ secrets.SB_KEY }}',
+            PASSWORD: '${{ secrets.PASSWORD }}',
           };
           EOF
 
