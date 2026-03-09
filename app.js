@@ -514,7 +514,7 @@ function renderPedidos(){
     const gan=(p.total_venta||0)-(p.total_costo||0);
     const fecha=p.fecha?new Date(p.fecha+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'}):'';
     const isEditing=editingPedidoId===p.id;
-    const pedJSON=JSON.stringify(p).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const pedJSON=JSON.stringify(p).replace(/"/g,'&quot;');
     const est=p.estado||'pendiente';
     const estIcon=est==='terminado'?'✓ Listo':'◌ Pendiente';
     return`<div class="ped-card${isEditing?' editing':''}">
@@ -531,7 +531,7 @@ function renderPedidos(){
       ${gan>0?`<span class="ped-gan">+$${f(gan)} gan.</span>`:''}
     </div>
     <div class="ped-acts-row">
-      <button class="ped-btn" onclick="startEditPedido(JSON.parse(this.dataset.ped.replace(/&quot;/g,'\\\"')),event)" data-ped="${pedJSON}">✎ Editar</button>
+      <button class="ped-btn" onclick="startEditPedido(JSON.parse(this.dataset.ped),event)" data-ped="${pedJSON}">✎ Editar</button>
       <button class="ped-btn del" onclick="deletePedido(${p.id},event)">✕</button>
     </div>
   </div>
