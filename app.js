@@ -729,9 +729,21 @@ async function renderDashboard(){
   _charts.m=new Chart(document.getElementById('chMensual'),{type:'bar',data:{labels:months.map(m=>m.label),datasets:[{label:'Ventas',data:mV,backgroundColor:'rgba(184,147,90,.72)',borderRadius:4},{label:'Ganancia',data:mG,backgroundColor:'rgba(59,107,72,.65)',borderRadius:4}]},options:{...CO,plugins:{legend:{labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12}}},scales:{x:{ticks:tickC,grid:gridC},y:{ticks:{...tickC,callback:v=>'$'+f(v)},grid:gridC}}}});
   // Chart 2: Estado doughnut
   _charts.e=new Chart(document.getElementById('chEstado'),{type:'doughnut',data:{labels:['Pendientes','Terminados'],datasets:[{data:[pend,term],backgroundColor:['rgba(184,147,90,.72)','rgba(59,107,72,.65)'],borderWidth:0,hoverOffset:4}]},options:{...CO,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12,padding:10}}}}});
-  // Chart 3: Top 5 perfumes
-  const top=[...CAT].sort((a,b)=>(b.sales||0)-(a.sales||0)).slice(0,5);
-  _charts.t=new Chart(document.getElementById('chTop'),{type:'bar',data:{labels:top.map(p=>p.nombre.length>22?p.nombre.slice(0,20)+'…':p.nombre),datasets:[{label:'Vendidos',data:top.map(p=>p.sales||0),backgroundColor:'rgba(184,147,90,.72)',borderRadius:4}]},options:{...CO,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{...tickC,stepSize:1},grid:gridC},y:{ticks:{...tickC},grid:{display:false}}}}});
+  // Chart 3: Top 5 perfumes — from PedidosItems of terminated orders
+  const termIds=PEDIDOS.filter(p=>p.estado==='terminado').map(p=>p.id);
+  let top=[];
+  if(termIds.length){
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/PedidosItems?pedido_id=in.(${termIds.join(',')})&select=perfume_nombre,qty`,{headers:SB_HDR});
+      if(r.ok){
+        const rows=await r.json();
+        const agg={};
+        rows.forEach(it=>{const k=it.perfume_nombre||'?';agg[k]=(agg[k]||0)+(it.qty||1);});
+        top=Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n,q])=>({nombre:n,qty:q}));
+      }
+    }catch{}
+  }
+  _charts.t=new Chart(document.getElementById('chTop'),{type:'bar',data:{labels:top.map(p=>p.nombre.length>22?p.nombre.slice(0,20)+'…':p.nombre),datasets:[{label:'Unidades vendidas',data:top.map(p=>p.qty),backgroundColor:'rgba(184,147,90,.72)',borderRadius:4}]},options:{...CO,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{...tickC,stepSize:1},grid:gridC},y:{ticks:{...tickC},grid:{display:false}}}}});
   // Chart 4: Catálogo por tipo
   const tipos=[{l:'Nicho',v:'Nicho'},{l:'Diseñador',v:'Diseñador'},{l:'Árabe',v:'Arabe'}];
   const tData=tipos.map(t=>CAT.filter(p=>p.tipo===t.v).length);
