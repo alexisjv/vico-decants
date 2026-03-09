@@ -7,7 +7,7 @@ const STO_PUB=`${SB_URL}/storage/v1/object/public/Imagenes`;
 async function sbUploadImage(file,codigo='',slot=''){
   const ext=file.name.split('.').pop()||'png';
   const path=codigo?(codigo+(slot?'_'+slot:'')+'.'+ext):(Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext);
-  const STO_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'x-upsert':'true'};
+  const STO_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
   const up=await fetch(`${SB_URL}/storage/v1/object/Imagenes/${path}`,{method:'POST',headers:{...STO_HDR,'Content-Type':file.type||'image/png'},body:file});
   if(!up.ok)throw new Error('Upload error: '+(await up.text()));
   return `${STO_PUB}/${path}`;
