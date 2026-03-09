@@ -191,7 +191,9 @@ async function save(){
   const n=document.getElementById('fNom').value.trim();
   if(!n){const e=document.getElementById('fNom');e.style.borderColor='var(--red)';e.focus();setTimeout(()=>e.style.borderColor='',1800);return;}
   const rawDbId=document.getElementById('fDbId').value;
-  const p={dbId:rawDbId?parseInt(rawDbId):null,tipo:document.getElementById('fTipo').value,marca:document.getElementById('fMarca').value.trim(),nombre:n,img:ib.m,inspo:ib.i,link:document.getElementById('fLink').value.trim(),stock:document.getElementById('fStk').value,p25:lp.p25,p5:lp.p5,p10:lp.p10,pl:+document.getElementById('pL').value||0,pc:+document.getElementById('pC').value||0,tam:+document.getElementById('tam').value||100,ce:+document.getElementById('ce').value||0,margin:+document.getElementById('mg').value||60,disc5:+document.getElementById('d5').value||0,disc10:+document.getElementById('d10').value||0,roundTo:document.getElementById('rnd').checked?document.getElementById('rto').value:null};
+  const rawCod=document.getElementById('fCod').value;
+  const resolvedId=rawDbId?parseInt(rawDbId):(rawCod?parseInt(rawCod):null);
+  const p={dbId:resolvedId,tipo:document.getElementById('fTipo').value,marca:document.getElementById('fMarca').value.trim(),nombre:n,img:ib.m,inspo:ib.i,link:document.getElementById('fLink').value.trim(),stock:document.getElementById('fStk').value,p25:lp.p25,p5:lp.p5,p10:lp.p10,pl:+document.getElementById('pL').value||0,pc:+document.getElementById('pC').value||0,tam:+document.getElementById('tam').value||100,ce:+document.getElementById('ce').value||0,margin:+document.getElementById('mg').value||60,disc5:+document.getElementById('d5').value||0,disc10:+document.getElementById('d10').value||0,roundTo:document.getElementById('rnd').checked?document.getElementById('rto').value:null};
   const b=document.getElementById('bsv');b.textContent='Guardando…';b.style.opacity='.5';b.style.pointerEvents='none';
   syncToast('Guardando…','loading');
   try{
