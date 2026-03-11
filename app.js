@@ -8,7 +8,7 @@ async function sbUploadImage(file,codigo='',slot=''){
   const ext=file.name.split('.').pop()||'png';
   const path=codigo?(codigo+(slot?'_'+slot:'')+'.'+ext):(Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext);
   const STO_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
-  const up=await fetch(`${SB_URL}/storage/v1/object/Imagenes/${path}`,{method:'POST',headers:{...STO_HDR,'Content-Type':file.type||'image/png'},body:file});
+  const up=await fetch(`${SB_URL}/storage/v1/object/Imagenes/${path}`,{method:'POST',headers:{...STO_HDR,'Content-Type':file.type||'image/png','x-upsert':'true'},body:file});
   if(!up.ok)throw new Error('Upload error: '+(await up.text()));
   return `${STO_PUB}/${path}`;
 }
@@ -610,7 +610,7 @@ async function xpdf(){
       return y+TH_H;
     }
 
-    function foot(n){doc.setFillColor(36,34,30);doc.rect(0,PH-7,PW,7,'F');doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(120,114,108);doc.text(String(n),PW/2,PH-2.5,{align:'center'});}
+    function foot(n){doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(160,155,150);doc.text(String(n),PW/2,PH-2.5,{align:'center'});}
     function newpage(){foot(pg++);doc.addPage();return thead(8);}
 
     hdr();curY=thead(TBL_TOP);
