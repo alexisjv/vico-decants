@@ -42,13 +42,18 @@ async function saveConfigVal(desc,val){
 async function saveDriveId(fileId){
   CFG.drive_pdf_id=fileId;
   localStorage.setItem('vico_drive_pdf_id',fileId);
-  // Intentar guardar en Supabase (best-effort, no bloquea)
+  // Guardar en Supabase para compartir entre dispositivos
   try{
     const now=new Date().toISOString();
-    const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.drive_pdf_id`,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify({valor:fileId,fecha_modificacion:now})});
-    const data=await r.json();
-    if(!data.length){
-      await fetch(`${SB_URL}/rest/v1/Configuracion`,{method:'POST',headers:{...SB_HDR,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({descripcion:'drive_pdf_id',valor:fileId,fecha_modificacion:now})});
+    // Upsert: inserta o actualiza según descripcion única
+    const r=await fetch(`${SB_URL}/rest/v1/Configuracion?on_conflict=descripcion`,{
+      method:'POST',
+      headers:{...SB_HDR,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({descripcion:'drive_pdf_id',valor:fileId,fecha_modificacion:now})
+    });
+    if(!r.ok){
+      const errBody=await r.text();
+      console.warn('Supabase drive_pdf_id upsert falló:',r.status,errBody);
     }
   }catch(e){console.warn('drive_pdf_id no guardado en Supabase:',e);}
 }
