@@ -21,7 +21,7 @@ let LOGO='',IG='',WA='',TT='';
 const TABLE='Perfumes';
 
 // CONFIG
-let CFG={inflacion:0,costo_fijo:0,infl_fecha:'',cf_fecha:''};
+let CFG={inflacion:0,costo_fijo:0,infl_fecha:'',cf_fecha:'',drive_pdf_id:''};
 async function loadConfig(){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/Configuracion?select=*`,{headers:SB_HDR});
@@ -29,6 +29,7 @@ async function loadConfig(){
     (await r.json()).forEach(row=>{
       if(row.descripcion==='inflacion') {CFG.inflacion=parseFloat(row.valor)||0;CFG.infl_fecha=row.fecha_modificacion||'';}
       if(row.descripcion==='costo_fijo'){CFG.costo_fijo=parseFloat(row.valor)||0;CFG.cf_fecha=row.fecha_modificacion||'';}
+      if(row.descripcion==='drive_pdf_id'){CFG.drive_pdf_id=row.valor||'';}
     });
   }catch(e){console.warn('Config:',e);}
 }
@@ -36,6 +37,15 @@ async function saveConfigVal(desc,val){
   const now=new Date().toISOString();
   await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.${encodeURIComponent(desc)}`,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify({valor:String(val),fecha_modificacion:now})});
   return now;
+}
+async function saveDriveId(fileId){
+  const now=new Date().toISOString();
+  const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.drive_pdf_id`,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify({valor:fileId,fecha_modificacion:now})});
+  const data=await r.json();
+  if(!data.length){
+    await fetch(`${SB_URL}/rest/v1/Configuracion`,{method:'POST',headers:{...SB_HDR,'Prefer':'return=minimal'},body:JSON.stringify({descripcion:'drive_pdf_id',valor:fileId,fecha_modificacion:now})});
+  }
+  CFG.drive_pdf_id=fileId;
 }
 
 // LOGIN
@@ -539,9 +549,9 @@ function renderPedidos(){
 document.addEventListener('click',e=>{if(!document.getElementById('pddrop').contains(e.target)&&e.target!==document.getElementById('pdq'))document.getElementById('pddrop').classList.remove('on');});
 
 // ── PDF ──
-async function xpdf(){
+async function xpdf(_returnBlob=false){
   if(!CAT.length){alert('No hay perfumes.');return;}
-  document.getElementById('pl').classList.add('on');
+  if(!_returnBlob)document.getElementById('pl').classList.add('on');
   try{
     if(!window.jspdf)await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
     const{jsPDF}=window.jspdf;
@@ -692,9 +702,88 @@ async function xpdf(){
       }
     }
     foot(pg);
+    if(_returnBlob)return doc.output('blob');
     doc.save('vico-catalogo-'+now.toISOString().slice(0,10)+'.pdf');
   }catch(err){console.error(err);alert('Error: '+err.message);}
-  finally{document.getElementById('pl').classList.remove('on');}
+  finally{if(!_returnBlob)document.getElementById('pl').classList.remove('on');}
+}
+
+// ── GOOGLE DRIVE ──
+let _gToken=null,_gTokenExpiry=0;
+async function getGToken(){
+  if(_gToken&&Date.now()<_gTokenExpiry)return _gToken;
+  if(!window.google?.accounts){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  return new Promise((resolve,reject)=>{
+    const client=google.accounts.oauth2.initTokenClient({
+      client_id:CONFIG.GOOGLE_CLIENT_ID,
+      scope:'https://www.googleapis.com/auth/drive.file',
+      callback:(resp)=>{
+        if(resp.error){reject(new Error(resp.error));return;}
+        _gToken=resp.access_token;
+        _gTokenExpiry=Date.now()+(resp.expires_in-60)*1000;
+        resolve(_gToken);
+      },
+    });
+    client.requestAccessToken();
+  });
+}
+async function uploadToDrive(){
+  if(!CAT.length){alert('No hay perfumes.');return;}
+  const btn=document.getElementById('bDrive');
+  btn.disabled=true;btn.textContent='…';
+  document.getElementById('pl').classList.add('on');
+  document.getElementById('plMsg').textContent='Generando PDF…';
+  try{
+    const blob=await xpdf(true);
+    if(!blob)throw new Error('No se pudo generar el PDF');
+    document.getElementById('plMsg').textContent='Autenticando con Google…';
+    const token=await getGToken();
+    document.getElementById('plMsg').textContent='Subiendo a Drive…';
+    let fileId=CFG.drive_pdf_id;
+    if(fileId){
+      // Reemplazar contenido del archivo (mismo ID, mismo link)
+      const r=await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,{
+        method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/pdf'},body:blob
+      });
+      if(!r.ok){
+        // Si el archivo fue borrado de Drive, crear uno nuevo
+        if(r.status===404){fileId='';}
+        else throw new Error('Error actualizando archivo ('+r.status+')');
+      }
+    }
+    if(!fileId){
+      // Crear archivo nuevo
+      const meta=JSON.stringify({name:'Vico Decants - Catálogo.pdf',mimeType:'application/pdf'});
+      const form=new FormData();
+      form.append('metadata',new Blob([meta],{type:'application/json'}));
+      form.append('file',blob,'vico-catalogo.pdf');
+      const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+        method:'POST',headers:{'Authorization':'Bearer '+token},body:form
+      });
+      if(!r.ok)throw new Error('Error subiendo archivo ('+r.status+')');
+      const data=await r.json();
+      fileId=data.id;
+      // Hacer el archivo público (cualquiera con el link puede verlo)
+      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`,{
+        method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({role:'reader',type:'anyone'})
+      });
+      await saveDriveId(fileId);
+    }
+    const link=`https://drive.google.com/file/d/${fileId}/view`;
+    try{await navigator.clipboard.writeText(link);}catch{}
+    toast('¡PDF subido a Drive! Link copiado: '+link);
+  }catch(err){
+    console.error(err);
+    if(err.message?.includes('401')||err.message?.includes('invalid_token'))_gToken=null;
+    alert('Error: '+err.message);
+  }finally{
+    btn.disabled=false;btn.textContent='↑ Drive';
+    document.getElementById('pl').classList.remove('on');
+    document.getElementById('plMsg').textContent='Generando PDF…';
+  }
 }
 
 
