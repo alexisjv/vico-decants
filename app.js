@@ -29,7 +29,7 @@ async function loadConfig(){
     (await r.json()).forEach(row=>{
       if(row.descripcion==='inflacion') {CFG.inflacion=parseFloat(row.valor)||0;CFG.infl_fecha=row.fecha_modificacion||'';}
       if(row.descripcion==='costo_fijo'){CFG.costo_fijo=parseFloat(row.valor)||0;CFG.cf_fecha=row.fecha_modificacion||'';}
-      if(row.descripcion==='drive_pdf_id'){CFG.drive_pdf_id=row.valor||'';}
+      if(row.descripcion==='drive_file_id'){CFG.drive_pdf_id=row.valor||'';}
     });
     if(!CFG.drive_pdf_id)CFG.drive_pdf_id=localStorage.getItem('vico_drive_pdf_id')||'';
   }catch(e){console.warn('Config:',e);}
@@ -42,20 +42,15 @@ async function saveConfigVal(desc,val){
 async function saveDriveId(fileId){
   CFG.drive_pdf_id=fileId;
   localStorage.setItem('vico_drive_pdf_id',fileId);
-  // Guardar en Supabase para compartir entre dispositivos
+  // PATCH la fila existente drive_file_id en Supabase (cross-device)
   try{
-    const now=new Date().toISOString();
-    // Upsert: inserta o actualiza según descripcion única
-    const r=await fetch(`${SB_URL}/rest/v1/Configuracion?on_conflict=descripcion`,{
-      method:'POST',
-      headers:{...SB_HDR,'Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:JSON.stringify({descripcion:'drive_pdf_id',valor:fileId,fecha_modificacion:now})
+    const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.drive_file_id`,{
+      method:'PATCH',
+      headers:{...SB_HDR,'Prefer':'return=minimal'},
+      body:JSON.stringify({valor:fileId})
     });
-    if(!r.ok){
-      const errBody=await r.text();
-      console.warn('Supabase drive_pdf_id upsert falló:',r.status,errBody);
-    }
-  }catch(e){console.warn('drive_pdf_id no guardado en Supabase:',e);}
+    if(!r.ok)console.warn('Supabase drive_file_id PATCH falló:',r.status,await r.text());
+  }catch(e){console.warn('drive_file_id no guardado en Supabase:',e);}
 }
 
 // LOGIN
