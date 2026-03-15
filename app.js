@@ -29,7 +29,7 @@ async function loadConfig(){
     (await r.json()).forEach(row=>{
       if(row.descripcion==='inflacion') {CFG.inflacion=parseFloat(row.valor)||0;CFG.infl_fecha=row.fecha_modificacion||'';}
       if(row.descripcion==='costo_fijo'){CFG.costo_fijo=parseFloat(row.valor)||0;CFG.cf_fecha=row.fecha_modificacion||'';}
-      if(row.descripcion==='drive_file_id'){CFG.drive_pdf_id=row.valor||'';}
+      if(row.descripcion==='drive_pdf_id'){CFG.drive_pdf_id=row.valor||'';}
     });
     if(!CFG.drive_pdf_id)CFG.drive_pdf_id=localStorage.getItem('vico_drive_pdf_id')||'';
   }catch(e){console.warn('Config:',e);}
@@ -42,14 +42,14 @@ async function saveConfigVal(desc,val){
 async function saveDriveId(fileId){
   CFG.drive_pdf_id=fileId;
   localStorage.setItem('vico_drive_pdf_id',fileId);
-  // PATCH la fila existente drive_file_id en Supabase (cross-device)
+  // PATCH la fila existente drive_pdf_id en Supabase (cross-device)
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.drive_file_id`,{
+    const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.drive_pdf_id`,{
       method:'PATCH',
       headers:{...SB_HDR,'Prefer':'return=minimal'},
       body:JSON.stringify({valor:fileId})
     });
-    if(!r.ok)console.warn('Supabase drive_file_id PATCH falló:',r.status,await r.text());
+    if(!r.ok)console.warn('Supabase drive_pdf_id PATCH falló:',r.status,await r.text());
   }catch(e){console.warn('drive_file_id no guardado en Supabase:',e);}
 }
 
