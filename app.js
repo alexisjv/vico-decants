@@ -31,6 +31,7 @@ async function loadConfig(){
       if(row.descripcion==='costo_fijo'){CFG.costo_fijo=parseFloat(row.valor)||0;CFG.cf_fecha=row.fecha_modificacion||'';}
       if(row.descripcion==='drive_pdf_id'){CFG.drive_pdf_id=row.valor||'';}
     });
+    if(!CFG.drive_pdf_id)CFG.drive_pdf_id=localStorage.getItem('vico_drive_pdf_id')||'';
   }catch(e){console.warn('Config:',e);}
 }
 async function saveConfigVal(desc,val){
@@ -39,13 +40,17 @@ async function saveConfigVal(desc,val){
   return now;
 }
 async function saveDriveId(fileId){
-  const now=new Date().toISOString();
-  const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.drive_pdf_id`,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify({valor:fileId,fecha_modificacion:now})});
-  const data=await r.json();
-  if(!data.length){
-    await fetch(`${SB_URL}/rest/v1/Configuracion`,{method:'POST',headers:{...SB_HDR,'Prefer':'return=minimal'},body:JSON.stringify({descripcion:'drive_pdf_id',valor:fileId,fecha_modificacion:now})});
-  }
   CFG.drive_pdf_id=fileId;
+  localStorage.setItem('vico_drive_pdf_id',fileId);
+  // Intentar guardar en Supabase (best-effort, no bloquea)
+  try{
+    const now=new Date().toISOString();
+    const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.drive_pdf_id`,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify({valor:fileId,fecha_modificacion:now})});
+    const data=await r.json();
+    if(!data.length){
+      await fetch(`${SB_URL}/rest/v1/Configuracion`,{method:'POST',headers:{...SB_HDR,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({descripcion:'drive_pdf_id',valor:fileId,fecha_modificacion:now})});
+    }
+  }catch(e){console.warn('drive_pdf_id no guardado en Supabase:',e);}
 }
 
 // LOGIN
