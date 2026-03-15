@@ -249,8 +249,6 @@ function rcat(q=''){
   <div class="cimg${p.stock==='out'?' out-img':''}">
     ${p.img?`<img class="mi" src="${p.img}">`:''}<div class="ph"${p.img?' style="display:none"':''}>◈</div>
     ${p.inspo?`<div class="ipip"><img src="${p.inspo}"></div>`:''}
-    <div class="stag2 ${p.stock}">${p.stock==='in'?'En stock':'Sin stock'}</div>
-    ${p.dbId?`<div class="cimg-cod">#${String(p.dbId).padStart(5,'0')}</div>`:''}
   </div>
   <div class="cbody">
     <div class="cd-row1"><span class="cd-name">${p.nombre}</span><div class="cd-dot ${p.stock}"></div></div>
