@@ -55,7 +55,7 @@ async function doLogin(){
   if(v===CONFIG.PASSWORD){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('nav').style.display='flex';
-    sv('vc'); loadDB(); loadPedidos(); e.style.display='none';
+    sv('vc'); loadDB(); loadPedidos(); e.style.display='none'; initGIS();
   }else{
     e.style.display='block';
     document.getElementById('lpwd').style.borderColor='var(--red)';
@@ -709,37 +709,45 @@ async function xpdf(_returnBlob=false){
 }
 
 // ── GOOGLE DRIVE ──
-let _gToken=null,_gTokenExpiry=0;
-async function getGToken(){
-  if(_gToken&&Date.now()<_gTokenExpiry)return _gToken;
-  if(!window.google?.accounts){
-    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
-  }
-  return new Promise((resolve,reject)=>{
-    const client=google.accounts.oauth2.initTokenClient({
+let _gToken=null,_gTokenExpiry=0,_gisClient=null;
+function initGIS(){
+  if(!CONFIG.GOOGLE_CLIENT_ID)return;
+  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';
+  s.onload=()=>{
+    _gisClient=google.accounts.oauth2.initTokenClient({
       client_id:CONFIG.GOOGLE_CLIENT_ID,
       scope:'https://www.googleapis.com/auth/drive.file',
-      callback:(resp)=>{
+      callback:()=>{},
+    });
+  };
+  document.head.appendChild(s);
+}
+async function uploadToDrive(){
+  if(!CAT.length){alert('No hay perfumes.');return;}
+  // Solicitar token SINCRÓNICAMENTE antes de cualquier await (evita bloqueo de popup)
+  let tokenPromise;
+  if(_gToken&&Date.now()<_gTokenExpiry){
+    tokenPromise=Promise.resolve(_gToken);
+  }else{
+    if(!_gisClient){alert('Google no cargó todavía. Reintentá en unos segundos.');return;}
+    tokenPromise=new Promise((resolve,reject)=>{
+      _gisClient.callback=(resp)=>{
         if(resp.error){reject(new Error(resp.error));return;}
         _gToken=resp.access_token;
         _gTokenExpiry=Date.now()+(resp.expires_in-60)*1000;
         resolve(_gToken);
-      },
+      };
+      _gisClient.requestAccessToken();
     });
-    client.requestAccessToken();
-  });
-}
-async function uploadToDrive(){
-  if(!CAT.length){alert('No hay perfumes.');return;}
+  }
   const btn=document.getElementById('bDrive');
   btn.disabled=true;btn.textContent='…';
   document.getElementById('pl').classList.add('on');
   document.getElementById('plMsg').textContent='Generando PDF…';
   try{
-    const blob=await xpdf(true);
+    // PDF y autenticación en paralelo
+    const[blob,token]=await Promise.all([xpdf(true),tokenPromise]);
     if(!blob)throw new Error('No se pudo generar el PDF');
-    document.getElementById('plMsg').textContent='Autenticando con Google…';
-    const token=await getGToken();
     document.getElementById('plMsg').textContent='Subiendo a Drive…';
     let fileId=CFG.drive_pdf_id;
     if(fileId){
