@@ -30,6 +30,7 @@ jobs:
             SB_URL: '${{ secrets.SB_URL }}',
             SB_KEY: '${{ secrets.SB_KEY }}',
             PASSWORD: '${{ secrets.PASSWORD }}',
+            GOOGLE_CLIENT_ID: '${{ secrets.GOOGLE_CLIENT_ID }}',
           };
           EOF
 
