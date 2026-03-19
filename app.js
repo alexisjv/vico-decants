@@ -31,6 +31,7 @@ async function loadConfig(){
       if(row.descripcion==='costo_fijo'){CFG.costo_fijo=parseFloat(row.valor)||0;CFG.cf_fecha=row.fecha_modificacion||'';}
       if(row.descripcion==='drive_pdf_id'){CFG.drive_pdf_id=row.valor||'';}
     });
+    if(!CFG.drive_pdf_id)CFG.drive_pdf_id=localStorage.getItem('vico_drive_pdf_id')||'';
   }catch(e){console.warn('Config:',e);}
 }
 async function saveConfigVal(desc,val){
@@ -39,13 +40,17 @@ async function saveConfigVal(desc,val){
   return now;
 }
 async function saveDriveId(fileId){
-  const now=new Date().toISOString();
-  const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.drive_pdf_id`,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify({valor:fileId,fecha_modificacion:now})});
-  const data=await r.json();
-  if(!data.length){
-    await fetch(`${SB_URL}/rest/v1/Configuracion`,{method:'POST',headers:{...SB_HDR,'Prefer':'return=minimal'},body:JSON.stringify({descripcion:'drive_pdf_id',valor:fileId,fecha_modificacion:now})});
-  }
   CFG.drive_pdf_id=fileId;
+  localStorage.setItem('vico_drive_pdf_id',fileId);
+  // PATCH la fila existente drive_pdf_id en Supabase (cross-device)
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.drive_pdf_id`,{
+      method:'PATCH',
+      headers:{...SB_HDR,'Prefer':'return=minimal'},
+      body:JSON.stringify({valor:fileId})
+    });
+    if(!r.ok)console.warn('Supabase drive_pdf_id PATCH falló:',r.status,await r.text());
+  }catch(e){console.warn('drive_file_id no guardado en Supabase:',e);}
 }
 
 // LOGIN
@@ -859,6 +864,225 @@ async function renderDashboard(){
   const decantSorted=Object.entries(decantPerf).map(([n,s])=>({n,total:s[2.5]+s[5]+s[10],s})).sort((a,b)=>b.total-a.total).slice(0,10);
   const dLabels=decantSorted.map(d=>d.n.length>18?d.n.slice(0,16)+'…':d.n);
   _charts.d=new Chart(document.getElementById('chDecants'),{type:'bar',data:{labels:dLabels,datasets:[{label:'2.5ml',data:decantSorted.map(d=>d.s[2.5]),backgroundColor:'rgba(184,147,90,.75)',borderRadius:3},{label:'5ml',data:decantSorted.map(d=>d.s[5]),backgroundColor:'rgba(59,107,72,.70)',borderRadius:3},{label:'10ml',data:decantSorted.map(d=>d.s[10]),backgroundColor:'rgba(90,120,184,.70)',borderRadius:3}]},options:{...CO,plugins:{legend:{labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12}}},scales:{x:{ticks:{...tickC,font:{size:9,family:'Inter'}},grid:{display:false}},y:{ticks:{...tickC,stepSize:1},grid:gridC}}}});
+}
+
+// ── FOLLETO (4 perfumes, cara al público) ──
+async function xFolleto() {
+  if (!CAT.length) { alert('No hay perfumes en el catálogo.'); return; }
+  let items = CAT.filter(p => p.stock === 'in').slice(0, 4);
+  if (!items.length) items = CAT.slice(0, 4);
+  document.getElementById('pl').classList.add('on');
+  document.getElementById('plMsg').textContent = 'Generando folleto…';
+  try {
+    if (!window.jspdf) await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    });
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const PW = 297, PH = 210;
+
+    const fi = async src => {
+      if (!src) return null;
+      if (src.startsWith('data:')) return src;
+      try {
+        const r = await fetch(src); const b = await r.blob();
+        return await new Promise(res => { const fr = new FileReader(); fr.onload = e => res(e.target.result); fr.readAsDataURL(b); });
+      } catch { return null; }
+    };
+    const ai = (d, x, y, w, h) => {
+      if (!d) return;
+      try { doc.addImage(d, d.startsWith('data:image/png') ? 'PNG' : 'JPEG', x, y, w, h, '', 'FAST'); } catch {}
+    };
+    // Filled triangle helper using jsPDF lines API
+    const tri = (x1, y1, x2, y2, x3, y3) =>
+      doc.lines([[x2 - x1, y2 - y1], [x3 - x2, y3 - y2]], x1, y1, [1, 1], 'F', true);
+
+    const now = new Date();
+    const ds = now.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    // Pre-load all images in parallel
+    const loaded = await Promise.all([fi(LOGO), fi(IG), fi(WA), fi(TT), ...items.map(p => fi(p.img))]);
+    const [logoD, igD, waD, ttD] = loaded;
+    const perfImgs = loaded.slice(4);
+
+    // ── FONDO ──
+    doc.setFillColor(237, 234, 227);
+    doc.rect(0, 0, PW, PH, 'F');
+
+    // ── HEADER (36mm) ──
+    const HDR = 36;
+    doc.setFillColor(28, 25, 22);
+    doc.rect(0, 0, PW, HDR, 'F');
+
+    // Acento geométrico: triángulo dorado esquina sup-derecha
+    doc.setFillColor(184, 147, 90);
+    tri(258, 0, PW, 0, PW, HDR);
+    // Triángulo oscuro encima (efecto escalonado)
+    doc.setFillColor(28, 25, 22);
+    tri(275, 0, PW, 0, PW, HDR * 0.55);
+    // Pequeño triángulo dorado intermedio (detalle)
+    doc.setFillColor(42, 38, 34);
+    tri(258, 0, 275, 0, 258, HDR);
+
+    // Logo
+    if (logoD) ai(logoD, 10, (HDR - 16) / 2, 16, 16);
+
+    // VICO DECANTS
+    const tx = logoD ? 30 : 10;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setCharSpace(3);
+    doc.setTextColor(232, 228, 220);
+    doc.text('VICO', tx, HDR / 2 - 0.5);
+    doc.setCharSpace(0); doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(184, 147, 90);
+    doc.text('D E C A N T S', tx, HDR / 2 + 7);
+
+    // Título central
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setCharSpace(2.5);
+    doc.setTextColor(210, 205, 195);
+    doc.text('SELECCIÓN DE DECANTS', PW / 2 - 15, HDR / 2 + 2, { align: 'center' });
+    doc.setCharSpace(0);
+
+    // Fecha
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5);
+    doc.setTextColor(100, 94, 86);
+    doc.text(ds, PW / 2 - 15, HDR - 5.5, { align: 'center' });
+
+    // Íconos sociales en header (zona oscura, antes del triángulo)
+    const SZH = 8, sxH = 222;
+    [igD, waD, ttD].forEach((d, i) => { if (d) ai(d, sxH + i * (SZH + 4), (HDR - SZH) / 2, SZH, SZH); });
+
+    // Línea dorada base del header
+    doc.setDrawColor(184, 147, 90); doc.setLineWidth(0.9);
+    doc.line(0, HDR, PW, HDR);
+
+    // ── COLUMNAS DE PRODUCTOS ──
+    const MX = 7;
+    const COL_W = (PW - MX * 2) / 4; // ~70.75mm
+    const BODY_TOP = HDR + 5;
+    const FTR_H = 18;
+    const BODY_BOT = PH - FTR_H;
+    const IMG_AREA_H = 68;
+    const IMG_W = 36, IMG_H = 48;
+
+    for (let i = 0; i < 4; i++) {
+      const p = items[i];
+      const cX = MX + i * COL_W;
+      const cCX = cX + COL_W / 2;
+
+      // Separador entre columnas
+      if (i > 0) {
+        doc.setDrawColor(200, 196, 188); doc.setLineWidth(0.2);
+        doc.line(cX, BODY_TOP + 3, cX, BODY_BOT - 4);
+      }
+      if (!p) continue;
+
+      // Tarjeta blanca para imagen
+      doc.setFillColor(250, 248, 243);
+      doc.roundedRect(cX + 3, BODY_TOP + 1, COL_W - 6, IMG_AREA_H, 4, 4, 'F');
+
+      // Badge tipo (esquina sup-izq de la tarjeta)
+      if (p.tipo) {
+        const bW = 20, bH = 5.5;
+        doc.setFillColor(184, 147, 90);
+        doc.roundedRect(cX + 5, BODY_TOP + 3.5, bW, bH, 1.5, 1.5, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(5); doc.setCharSpace(0.4);
+        doc.setTextColor(28, 25, 22);
+        doc.text(p.tipo.toUpperCase(), cX + 5 + bW / 2, BODY_TOP + 7.7, { align: 'center' });
+        doc.setCharSpace(0);
+      }
+
+      // Imagen del perfume (centrada en tarjeta)
+      if (perfImgs[i]) {
+        const ix = cCX - IMG_W / 2;
+        const iy = BODY_TOP + 1 + (IMG_AREA_H - IMG_H) / 2;
+        ai(perfImgs[i], ix, iy, IMG_W, IMG_H);
+      } else {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(24);
+        doc.setTextColor(210, 205, 195);
+        doc.text('◈', cCX, BODY_TOP + 1 + IMG_AREA_H / 2 + 6, { align: 'center' });
+      }
+
+      // Nombre
+      let tY = BODY_TOP + IMG_AREA_H + 9;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+      doc.setTextColor(28, 25, 22);
+      const nl = doc.splitTextToSize(p.nombre || '—', COL_W - 8);
+      nl.slice(0, 2).forEach((l, li) => doc.text(l, cCX, tY + li * 5.5, { align: 'center' }));
+      tY += Math.min(nl.length, 2) * 5.5 + 2;
+
+      // Marca
+      if (p.marca) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+        doc.setTextColor(122, 114, 104);
+        doc.text(p.marca, cCX, tY, { align: 'center' });
+        tY += 5.5;
+      }
+
+      // Separador dorado
+      doc.setDrawColor(184, 147, 90); doc.setLineWidth(0.5);
+      doc.line(cX + COL_W * 0.22, tY, cX + COL_W * 0.78, tY);
+      tY += 5;
+
+      // Precios: 2.5ml | 5ml | 10ml
+      const prices = [{ l: '2.5 ml', v: p.p25 }, { l: '5 ml', v: p.p5 }, { l: '10 ml', v: p.p10 }];
+      const pW = (COL_W - 8) / 3;
+      prices.forEach((pr, pi) => {
+        const px = cX + 4 + pi * pW + pW / 2;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(5.5);
+        doc.setTextColor(122, 114, 104);
+        doc.text(pr.l, px, tY, { align: 'center' });
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+        doc.setTextColor(28, 25, 22);
+        doc.text('$' + f(pr.v), px, tY + 6.5, { align: 'center' });
+      });
+
+      // Divisores entre precios
+      doc.setDrawColor(215, 211, 203); doc.setLineWidth(0.18);
+      [1, 2].forEach(pi => {
+        const lx = cX + 4 + pi * pW;
+        doc.line(lx, tY - 1.5, lx, tY + 10);
+      });
+    }
+
+    // ── FOOTER (18mm) ──
+    const FY = PH - FTR_H;
+    doc.setFillColor(28, 25, 22);
+    doc.rect(0, FY, PW, FTR_H, 'F');
+
+    // Acento geométrico footer derecha (rombo dorado)
+    doc.setFillColor(184, 147, 90);
+    const dx = PW - 13, dy = FY + FTR_H / 2;
+    doc.lines([[5, -5], [5, 5], [-5, 5], [-5, -5]], dx - 5, dy, [1, 1], 'F', true);
+    // Mini rombo oscuro encima
+    doc.setFillColor(42, 38, 34);
+    doc.lines([[3, -3], [3, 3], [-3, 3], [-3, -3]], dx - 3, dy, [1, 1], 'F', true);
+
+    // Línea dorada superior del footer
+    doc.setDrawColor(184, 147, 90); doc.setLineWidth(0.8);
+    doc.line(0, FY, PW, FY);
+
+    // Íconos sociales footer izquierda
+    const SZF = 7, fsx = 13;
+    [igD, waD, ttD].forEach((d, i) => { if (d) ai(d, fsx + i * (SZF + 4), FY + (FTR_H - SZF) / 2, SZF, SZF); });
+
+    // Texto footer
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setCharSpace(2);
+    doc.setTextColor(232, 228, 220);
+    doc.text('@VICO.DECANTS', PW / 2, FY + 8, { align: 'center' });
+    doc.setCharSpace(0);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6);
+    doc.setTextColor(110, 104, 96);
+    doc.text('Precios al ' + ds + '  ·  Decants a medida  ·  2.5ml · 5ml · 10ml', PW / 2, FY + 14.5, { align: 'center' });
+
+    doc.save('vico-folleto-' + now.toISOString().slice(0, 10) + '.pdf');
+  } catch (err) {
+    console.error(err); alert('Error generando folleto: ' + err.message);
+  } finally {
+    document.getElementById('pl').classList.remove('on');
+    document.getElementById('plMsg').textContent = 'Generando PDF…';
+  }
 }
 
 // INIT
