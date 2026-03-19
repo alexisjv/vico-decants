@@ -880,8 +880,8 @@ async function xFolleto() {
       s.onload = res; s.onerror = rej; document.head.appendChild(s);
     });
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const PW = 297, PH = 210;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const PW = 210, PH = 297;
 
     const fi = async src => {
       if (!src) return null;
@@ -911,170 +911,173 @@ async function xFolleto() {
     doc.setFillColor(237, 234, 227);
     doc.rect(0, 0, PW, PH, 'F');
 
-    // ── HEADER (36mm) ──
-    const HDR = 36;
+    // Decoración de fondo: franja diagonal dorada suave (top-right)
+    doc.setFillColor(228, 222, 208);
+    tri(PW * 0.38, 0, PW, 0, PW, PH * 0.52);
+    doc.setFillColor(232, 227, 215);
+    tri(PW * 0.55, 0, PW, 0, PW, PH * 0.3);
+
+    // ── HEADER (52mm) ──
+    const HDR = 52;
     doc.setFillColor(28, 25, 22);
     doc.rect(0, 0, PW, HDR, 'F');
 
-    // Acento geométrico: triángulo dorado esquina sup-derecha
+    // Triángulo dorado top-right del header
     doc.setFillColor(184, 147, 90);
-    tri(258, 0, PW, 0, PW, HDR);
-    // Triángulo oscuro encima (efecto escalonado)
+    tri(PW * 0.58, 0, PW, 0, PW, HDR);
+    // Corte oscuro encima (escalón)
     doc.setFillColor(28, 25, 22);
-    tri(275, 0, PW, 0, PW, HDR * 0.55);
-    // Pequeño triángulo dorado intermedio (detalle)
-    doc.setFillColor(42, 38, 34);
-    tri(258, 0, 275, 0, 258, HDR);
+    tri(PW * 0.74, 0, PW, 0, PW, HDR * 0.5);
 
     // Logo
-    if (logoD) ai(logoD, 10, (HDR - 16) / 2, 16, 16);
+    if (logoD) ai(logoD, 12, (HDR - 22) / 2, 22, 22);
 
-    // VICO DECANTS
-    const tx = logoD ? 30 : 10;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setCharSpace(3);
+    // VICO DECANTS (grande, protagonista)
+    const tx = logoD ? 40 : 12;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setCharSpace(4);
     doc.setTextColor(232, 228, 220);
-    doc.text('VICO', tx, HDR / 2 - 0.5);
-    doc.setCharSpace(0); doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+    doc.text('VICO', tx, HDR / 2 - 2);
+    doc.setCharSpace(0);
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
     doc.setTextColor(184, 147, 90);
     doc.text('D E C A N T S', tx, HDR / 2 + 7);
-
-    // Título central
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setCharSpace(2.5);
-    doc.setTextColor(210, 205, 195);
-    doc.text('SELECCIÓN DE DECANTS', PW / 2 - 15, HDR / 2 + 2, { align: 'center' });
-    doc.setCharSpace(0);
-
-    // Fecha
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5);
-    doc.setTextColor(100, 94, 86);
-    doc.text(ds, PW / 2 - 15, HDR - 5.5, { align: 'center' });
-
-    // Íconos sociales en header (zona oscura, antes del triángulo)
-    const SZH = 8, sxH = 222;
-    [igD, waD, ttD].forEach((d, i) => { if (d) ai(d, sxH + i * (SZH + 4), (HDR - SZH) / 2, SZH, SZH); });
+    doc.setFontSize(6.5);
+    doc.setTextColor(90, 84, 77);
+    doc.text('Selección de decants · ' + ds, tx, HDR / 2 + 14.5);
 
     // Línea dorada base del header
-    doc.setDrawColor(184, 147, 90); doc.setLineWidth(0.9);
+    doc.setDrawColor(184, 147, 90); doc.setLineWidth(1.1);
     doc.line(0, HDR, PW, HDR);
 
-    // ── COLUMNAS DE PRODUCTOS ──
-    const MX = 7;
-    const COL_W = (PW - MX * 2) / 4; // ~70.75mm
-    const BODY_TOP = HDR + 5;
-    const FTR_H = 18;
-    const BODY_BOT = PH - FTR_H;
-    const IMG_AREA_H = 68;
-    const IMG_W = 36, IMG_H = 48;
+    // ── LAYOUT FLOTANTE: 4 productos asimétricos ──
+    // Producto 0: top-left, grande  → col izq, fila alta
+    // Producto 1: top-right, medio  → col der, fila alta (elevado)
+    // Producto 2: bottom-left, medio→ col izq, fila baja
+    // Producto 3: bottom-right, grande→ col der, fila baja
+    const layout = [
+      { x: 10,  y: 60,  imgW: 72, imgH: 92, textAlign: 'left'   }, // P0 grande izq
+      { x: 116, y: 57,  imgW: 56, imgH: 72, textAlign: 'right'  }, // P1 medio der
+      { x: 14,  y: 174, imgW: 56, imgH: 72, textAlign: 'left'   }, // P2 medio izq
+      { x: 112, y: 170, imgW: 72, imgH: 92, textAlign: 'right'  }, // P3 grande der
+    ];
+
+    // Divisor central dorado (entre filas superior e inferior)
+    const DIV_Y = 160;
+    doc.setDrawColor(184, 147, 90); doc.setLineWidth(0.5);
+    doc.line(12, DIV_Y, PW - 12, DIV_Y);
+    // Pequeño rombo dorado centrado en el divisor
+    const rX = PW / 2, rY = DIV_Y;
+    doc.setFillColor(184, 147, 90);
+    doc.lines([[4, -4], [4, 4], [-4, 4], [-4, -4]], rX - 4, rY, [1, 1], 'F', true);
+    // Cubrir centro del rombo con BG (efecto hueco)
+    doc.setFillColor(237, 234, 227);
+    doc.lines([[2.2, -2.2], [2.2, 2.2], [-2.2, 2.2], [-2.2, -2.2]], rX - 2.2, rY, [1, 1], 'F', true);
 
     for (let i = 0; i < 4; i++) {
       const p = items[i];
-      const cX = MX + i * COL_W;
-      const cCX = cX + COL_W / 2;
-
-      // Separador entre columnas
-      if (i > 0) {
-        doc.setDrawColor(200, 196, 188); doc.setLineWidth(0.2);
-        doc.line(cX, BODY_TOP + 3, cX, BODY_BOT - 4);
-      }
       if (!p) continue;
+      const { x, y, imgW, imgH, textAlign } = layout[i];
+      const cx = x + imgW / 2; // centro horizontal de la imagen
 
-      // Tarjeta blanca para imagen
+      // --- Sombra simulada (rect desplazado) ---
+      doc.setFillColor(200, 196, 188);
+      doc.roundedRect(x + 3, y + 4, imgW, imgH, 5, 5, 'F');
+
+      // --- Fondo blanco de imagen (flotante) ---
       doc.setFillColor(250, 248, 243);
-      doc.roundedRect(cX + 3, BODY_TOP + 1, COL_W - 6, IMG_AREA_H, 4, 4, 'F');
+      doc.roundedRect(x, y, imgW, imgH, 5, 5, 'F');
 
-      // Badge tipo (esquina sup-izq de la tarjeta)
+      // --- Imagen del perfume ---
+      if (perfImgs[i]) {
+        const pad = 6;
+        ai(perfImgs[i], x + pad, y + pad, imgW - pad * 2, imgH - pad * 2);
+      } else {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(28);
+        doc.setTextColor(210, 205, 195);
+        doc.text('◈', cx, y + imgH / 2 + 7, { align: 'center' });
+      }
+
+      // --- Badge de tipo (esquina sup de la imagen) ---
       if (p.tipo) {
-        const bW = 20, bH = 5.5;
-        doc.setFillColor(184, 147, 90);
-        doc.roundedRect(cX + 5, BODY_TOP + 3.5, bW, bH, 1.5, 1.5, 'F');
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(5); doc.setCharSpace(0.4);
-        doc.setTextColor(28, 25, 22);
-        doc.text(p.tipo.toUpperCase(), cX + 5 + bW / 2, BODY_TOP + 7.7, { align: 'center' });
+        const bW = 22, bH = 6;
+        const bX = textAlign === 'left' ? x + 5 : x + imgW - bW - 5;
+        doc.setFillColor(28, 25, 22);
+        doc.roundedRect(bX, y + 5, bW, bH, 2, 2, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(5); doc.setCharSpace(0.5);
+        doc.setTextColor(184, 147, 90);
+        doc.text(p.tipo.toUpperCase(), bX + bW / 2, y + 9.7, { align: 'center' });
         doc.setCharSpace(0);
       }
 
-      // Imagen del perfume (centrada en tarjeta)
-      if (perfImgs[i]) {
-        const ix = cCX - IMG_W / 2;
-        const iy = BODY_TOP + 1 + (IMG_AREA_H - IMG_H) / 2;
-        ai(perfImgs[i], ix, iy, IMG_W, IMG_H);
-      } else {
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(24);
-        doc.setTextColor(210, 205, 195);
-        doc.text('◈', cCX, BODY_TOP + 1 + IMG_AREA_H / 2 + 6, { align: 'center' });
-      }
+      // --- Texto debajo de la imagen ---
+      const textX = textAlign === 'left' ? x : x + imgW;
+      const tAlign = textAlign === 'left' ? 'left' : 'right';
+      let tY = y + imgH + 7;
 
       // Nombre
-      let tY = BODY_TOP + IMG_AREA_H + 9;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
       doc.setTextColor(28, 25, 22);
-      const nl = doc.splitTextToSize(p.nombre || '—', COL_W - 8);
-      nl.slice(0, 2).forEach((l, li) => doc.text(l, cCX, tY + li * 5.5, { align: 'center' }));
-      tY += Math.min(nl.length, 2) * 5.5 + 2;
+      const maxW = imgW;
+      const nl = doc.splitTextToSize(p.nombre || '—', maxW);
+      nl.slice(0, 2).forEach((l, li) => doc.text(l, textX, tY + li * 6, { align: tAlign }));
+      tY += Math.min(nl.length, 2) * 6 + 1.5;
 
       // Marca
       if (p.marca) {
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
         doc.setTextColor(122, 114, 104);
-        doc.text(p.marca, cCX, tY, { align: 'center' });
+        doc.text(p.marca, textX, tY, { align: tAlign });
         tY += 5.5;
       }
 
-      // Separador dorado
-      doc.setDrawColor(184, 147, 90); doc.setLineWidth(0.5);
-      doc.line(cX + COL_W * 0.22, tY, cX + COL_W * 0.78, tY);
+      // Línea dorada bajo marca
+      doc.setDrawColor(184, 147, 90); doc.setLineWidth(0.4);
+      if (textAlign === 'left') doc.line(x, tY, x + imgW * 0.6, tY);
+      else doc.line(x + imgW * 0.4, tY, x + imgW, tY);
       tY += 5;
 
-      // Precios: 2.5ml | 5ml | 10ml
-      const prices = [{ l: '2.5 ml', v: p.p25 }, { l: '5 ml', v: p.p5 }, { l: '10 ml', v: p.p10 }];
-      const pW = (COL_W - 8) / 3;
-      prices.forEach((pr, pi) => {
-        const px = cX + 4 + pi * pW + pW / 2;
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(5.5);
-        doc.setTextColor(122, 114, 104);
-        doc.text(pr.l, px, tY, { align: 'center' });
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
-        doc.setTextColor(28, 25, 22);
-        doc.text('$' + f(pr.v), px, tY + 6.5, { align: 'center' });
-      });
+      // Precios compactos en una sola línea
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
+      doc.setTextColor(28, 25, 22);
+      const pLine = `$${f(p.p25)}  ·  $${f(p.p5)}  ·  $${f(p.p10)}`;
+      doc.text(pLine, textX, tY, { align: tAlign });
+      tY += 4.5;
 
-      // Divisores entre precios
-      doc.setDrawColor(215, 211, 203); doc.setLineWidth(0.18);
-      [1, 2].forEach(pi => {
-        const lx = cX + 4 + pi * pW;
-        doc.line(lx, tY - 1.5, lx, tY + 10);
-      });
+      // Labels de ml bajo los precios
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(5.5);
+      doc.setTextColor(150, 143, 134);
+      const mlLine = '2.5 ml              5 ml             10 ml';
+      doc.text(mlLine, textX, tY, { align: tAlign });
     }
 
-    // ── FOOTER (18mm) ──
+    // ── FOOTER (22mm) ──
+    const FTR_H = 22;
     const FY = PH - FTR_H;
     doc.setFillColor(28, 25, 22);
     doc.rect(0, FY, PW, FTR_H, 'F');
 
-    // Acento geométrico footer derecha (rombo dorado)
+    // Triángulo dorado footer left (espejo del header)
     doc.setFillColor(184, 147, 90);
-    const dx = PW - 13, dy = FY + FTR_H / 2;
-    doc.lines([[5, -5], [5, 5], [-5, 5], [-5, -5]], dx - 5, dy, [1, 1], 'F', true);
-    // Mini rombo oscuro encima
-    doc.setFillColor(42, 38, 34);
-    doc.lines([[3, -3], [3, 3], [-3, 3], [-3, -3]], dx - 3, dy, [1, 1], 'F', true);
+    tri(0, FY, PW * 0.42, FY, 0, PH);
+    doc.setFillColor(28, 25, 22);
+    tri(0, FY + FTR_H * 0.5, PW * 0.26, FY, 0, PH);
 
-    // Línea dorada superior del footer
-    doc.setDrawColor(184, 147, 90); doc.setLineWidth(0.8);
+    // Línea dorada top del footer
+    doc.setDrawColor(184, 147, 90); doc.setLineWidth(0.9);
     doc.line(0, FY, PW, FY);
 
-    // Íconos sociales footer izquierda
-    const SZF = 7, fsx = 13;
-    [igD, waD, ttD].forEach((d, i) => { if (d) ai(d, fsx + i * (SZF + 4), FY + (FTR_H - SZF) / 2, SZF, SZF); });
+    // Íconos sociales footer
+    const SZF = 8, fsx = PW / 2 - (3 * SZF + 2 * 5) / 2;
+    [igD, waD, ttD].forEach((d, i) => { if (d) ai(d, fsx + i * (SZF + 5), FY + (FTR_H - SZF) / 2, SZF, SZF); });
 
-    // Texto footer
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setCharSpace(2);
+    // Handle y tagline
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setCharSpace(2);
     doc.setTextColor(232, 228, 220);
-    doc.text('@VICO.DECANTS', PW / 2, FY + 8, { align: 'center' });
+    doc.text('@VICO.DECANTS', PW / 2, FY + 9, { align: 'center' });
     doc.setCharSpace(0);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6);
     doc.setTextColor(110, 104, 96);
-    doc.text('Precios al ' + ds + '  ·  Decants a medida  ·  2.5ml · 5ml · 10ml', PW / 2, FY + 14.5, { align: 'center' });
+    doc.text('Decants a medida  ·  Precios al ' + ds, PW / 2, FY + 16, { align: 'center' });
 
     doc.save('vico-folleto-' + now.toISOString().slice(0, 10) + '.pdf');
   } catch (err) {
