@@ -218,7 +218,7 @@ document.addEventListener('click',e=>{if(!$('pddrop').contains(e.target)&&e.targ
 function clientes(){
   const m=new Map();
   PEDIDOS.forEach(p=>{
-    const n=(p.cliente_nombre||'').trim();if(!n)return;
+    const n=(p.cliente_nombre||'').trim().replace(/\s+/g,' ');if(!n)return;
     const c=m.get(n.toLowerCase())||{cliente_nombre:n};
     ['cliente_tel','cliente_email','cliente_dir'].forEach(k=>{if(!c[k]&&p[k])c[k]=p[k];});
     m.set(n.toLowerCase(),c);
@@ -227,6 +227,6 @@ function clientes(){
 }
 function updClientList(){$('vClientes').innerHTML=[...clientes().values()].map(p=>`<option value="${esc(p.cliente_nombre)}">`).join('');}
 function fillCliente(){
-  const p=clientes().get($('vNom').value.trim().toLowerCase());if(!p)return;
+  const p=clientes().get($('vNom').value.trim().replace(/\s+/g,' ').toLowerCase());if(!p)return;
   [['vTel','cliente_tel'],['vEmail','cliente_email'],['vDir','cliente_dir']].forEach(([id,k])=>{if(!$(id).value&&p[k])$(id).value=p[k];});
 }

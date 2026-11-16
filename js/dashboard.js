@@ -18,13 +18,15 @@ async function downloadBackup(){
 let _charts={},_dashItems=null;
 const PERIODOS={mes:'Este mes',m3:'Últimos 3 meses',m6:'Últimos 6 meses',m12:'Últimos 12 meses',todo:'Todo'};
 function rangoPeriodo(k){
-  const now=new Date(),ym=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const now=new Date(),ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const meses={mes:1,m3:3,m6:6,m12:12}[k];
   if(!meses)return{desde:'',hasta:'9999',prevDesde:null,prevHasta:null,meses:0};
   const desde=new Date(now.getFullYear(),now.getMonth()-meses+1,1),prev=new Date(now.getFullYear(),now.getMonth()-2*meses+1,1);
-  return{desde:ym(desde),hasta:'9999',prevDesde:ym(prev),prevHasta:ym(desde),meses};
+  const finMesPrev=new Date(now.getFullYear(),now.getMonth()-meses+1,0).getDate();
+  const corte=new Date(now.getFullYear(),now.getMonth()-meses,Math.min(now.getDate(),finMesPrev)+1);
+  return{desde:ymd(desde),hasta:'9999',prevDesde:ymd(prev),prevHasta:ymd(corte),meses};
 }
-function enRango(fecha,desde,hasta){const m=(fecha||'').slice(0,7);return m>=desde&&m<hasta;}
+function enRango(fecha,desde,hasta){const d=(fecha||'').slice(0,10);return d>=desde&&d<hasta;}
 async function dashItems(){
   if(_dashItems)return _dashItems;
   const out=[];
@@ -38,7 +40,7 @@ function dashDelta(el,act,prev){
   if(prev==null){el.textContent='';return;}
   if(!prev){el.textContent=act?'Primer período con ventas':'';el.className='dkpi-s';return;}
   const p=Math.round((act-prev)/prev*100);
-  el.textContent=`${p>=0?'▲':'▼'} ${Math.abs(p)}% vs período anterior`;
+  el.textContent=`${p>=0?'▲':'▼'} ${Math.abs(p)}% vs mismos días del período anterior`;
   el.className='dkpi-s '+(p>=0?'up':'down');
 }
 async function renderDashboard(){
@@ -69,7 +71,7 @@ async function renderDashboard(){
   $('dKpiPendMonto').textContent=pendL.length?`$${f(suma(pendL,'total_venta'))} a cobrar`:'Todo al día';
   $('dKpiPend').className='dkpi-v '+(pendL.length?'gold':'grn');
   const porCliente={};
-  act.forEach(p=>{const n=(p.cliente_nombre||'').trim();if(!n)return;const k=n.toLowerCase();porCliente[k]=porCliente[k]||{n,v:0,c:0};porCliente[k].v+=p.total_venta||0;porCliente[k].c++;});
+  act.forEach(p=>{const n=(p.cliente_nombre||'').trim().replace(/\s+/g,' ');if(!n)return;const k=n.toLowerCase();porCliente[k]=porCliente[k]||{n,v:0,c:0};porCliente[k].v+=p.total_venta||0;porCliente[k].c++;});
   const clientes=Object.values(porCliente);
   $('dKpiClientes').textContent=clientes.length;
   const rep=clientes.filter(c=>c.c>1).length;

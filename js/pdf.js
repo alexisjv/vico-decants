@@ -5,8 +5,9 @@ async function imgParaPdf(src){
     const d=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.onerror=rej;fr.readAsDataURL(b);});
     if(/^data:image\/(png|jpe?g);/.test(d))return d;
     const img=new Image();img.src=d;await img.decode();
-    const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
-    c.getContext('2d').drawImage(img,0,0);
+    const k=Math.min(1,1000/Math.max(img.naturalWidth,img.naturalHeight));
+    const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
     return c.toDataURL('image/png');
   }catch(e){console.warn('PDF imagen:',src.slice(0,80),e);return null;}
 }
