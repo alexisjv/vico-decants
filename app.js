@@ -2,13 +2,47 @@ const SB_URL=CONFIG.SB_URL;
 const SB_KEY=CONFIG.SB_KEY;
 const SB_HDR={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
 
+// AUTH
+let SESSION=null,_rt=null;
+function setSession(s){
+  SESSION=s;clearTimeout(_rt);
+  if(!s){localStorage.removeItem('vico_session');SB_HDR.Authorization='Bearer '+SB_KEY;return;}
+  s.expires_at=s.expires_at||Math.floor(Date.now()/1000)+(s.expires_in||3600);
+  localStorage.setItem('vico_session',JSON.stringify({access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at}));
+  SB_HDR.Authorization='Bearer '+s.access_token;
+  _rt=setTimeout(refreshSession,Math.max(5000,(s.expires_at-120)*1000-Date.now()));
+}
+async function authToken(grant,body){
+  const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=${grant}`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error_description||j.msg||j.message||('Auth '+r.status));
+  return j;
+}
+async function refreshSession(){
+  if(!SESSION)return false;
+  try{setSession(await authToken('refresh_token',{refresh_token:SESSION.refresh_token}));return true;}
+  catch(e){console.warn('Auth:',e);setSession(null);showLogin('La sesión expiró. Ingresá de nuevo.');return false;}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&SESSION&&SESSION.expires_at-120<Date.now()/1000)refreshSession();});
+
 // STORAGE
 const STO_PUB=`${SB_URL}/storage/v1/object/public/Imagenes`;
+async function shrinkImage(file,max=1200){
+  if(!/^image\/(png|jpeg)$/.test(file.type)||file.size<300*1024)return file;
+  try{
+    const bmp=await createImageBitmap(file),k=Math.min(1,max/Math.max(bmp.width,bmp.height));
+    const c=document.createElement('canvas');c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);
+    c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+    const b=await new Promise(r=>c.toBlob(r,file.type,0.85));
+    return b&&b.size<file.size?b:file;
+  }catch(e){console.warn('Imagen:',e);return file;}
+}
 async function sbUploadImage(file,codigo='',slot=''){
   const ext=file.name.split('.').pop()||'png';
+  const body=await shrinkImage(file);
   const path=codigo?(codigo+(slot?'_'+slot:'')+'.'+ext):(Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext);
-  const STO_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
-  const up=await fetch(`${SB_URL}/storage/v1/object/Imagenes/${path}`,{method:'POST',headers:{...STO_HDR,'Content-Type':file.type||'image/png','x-upsert':'true'},body:file});
+  const STO_HDR={'apikey':SB_KEY,'Authorization':SB_HDR.Authorization};
+  const up=await fetch(`${SB_URL}/storage/v1/object/Imagenes/${path}`,{method:'POST',headers:{...STO_HDR,'Content-Type':file.type||'image/png','x-upsert':'true'},body});
   if(!up.ok)throw new Error('Upload error: '+(await up.text()));
   return `${STO_PUB}/${path}?v=${Date.now()}`;
 }
@@ -47,29 +81,44 @@ async function saveDriveId(fileId){
   try{
     const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.drive_pdf_id`,{
       method:'PATCH',
-      headers:{...SB_HDR,'Prefer':'return=minimal'},
+      headers:{...SB_HDR,'Prefer':'return=representation'},
       body:JSON.stringify({valor:fileId})
     });
     if(!r.ok)console.warn('Supabase drive_pdf_id PATCH falló:',r.status,await r.text());
+    else if(!(await r.json()).length){
+      const ri=await fetch(`${SB_URL}/rest/v1/Configuracion`,{method:'POST',headers:SB_HDR,body:JSON.stringify({descripcion:'drive_pdf_id',valor:fileId})});
+      if(!ri.ok)console.warn('Supabase drive_pdf_id INSERT falló:',ri.status,await ri.text());
+    }
   }catch(e){console.warn('drive_file_id no guardado en Supabase:',e);}
 }
 
 // LOGIN
+function showLogin(msg){
+  document.getElementById('login-screen').style.display='';
+  document.getElementById('nav').style.display='none';
+  const e=document.getElementById('lerr');e.textContent=msg||'';e.style.display=msg?'block':'none';
+}
+async function enterApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('nav').style.display='flex';
+  await loadConfig();
+  sv('vc');loadDB();loadPedidos();initGIS();
+}
 async function doLogin(){
-  await Promise.race([CFG_READY,new Promise(r=>setTimeout(r,4000))]);
-  const v=document.getElementById('lpwd').value;
-  const e=document.getElementById('lerr');
-  if(v===CONFIG.PASSWORD){
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('nav').style.display='flex';
-    sv('vc'); loadDB(); loadPedidos(); e.style.display='none'; initGIS();
-  }else{
-    e.style.display='block';
+  const email=document.getElementById('lemail').value.trim(),pwd=document.getElementById('lpwd').value;
+  if(!email||!pwd){showLogin('Completá email y contraseña');return;}
+  try{setSession(await authToken('password',{email,password:pwd}));document.getElementById('lpwd').value='';await enterApp();}
+  catch(e){
+    showLogin(/invalid/i.test(e.message)?'Email o contraseña incorrectos':e.message);
     document.getElementById('lpwd').style.borderColor='var(--red)';
     setTimeout(()=>document.getElementById('lpwd').style.borderColor='',1800);
   }
 }
-document.getElementById('lpwd').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+async function doLogout(){
+  try{await fetch(`${SB_URL}/auth/v1/logout`,{method:'POST',headers:SB_HDR});}catch{}
+  setSession(null);location.reload();
+}
+['lemail','lpwd'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();}));
 
 // SUPABASE
 async function sbGet(){
@@ -81,11 +130,11 @@ async function sbGet(){
     p25:row.p25||0,p5:row.p5||0,p10:row.p10||0,pl:row.pl||0,pc:row.pc||0,tam:row.size||100,
     ce:row.extra_cost!=null?row.extra_cost:0,margin:row.margin!=null?row.margin:60,
     disc5:row.disc5!=null?row.disc5:10,disc10:row.disc10!=null?row.disc10:20,
-    roundTo:row.round_to!=null?String(row.round_to):null,sales:row.sales||0,
+    roundTo:row.round_to!=null?String(row.round_to):null,aj:row.ajuste!=null?+row.ajuste:1,sales:row.sales||0,
   }));
 }
 async function sbUpsert(p){
-  const row={type:p.tipo||'',brand:p.marca||'',name:p.nombre||'',img:p.img||'',img_insp:p.inspo||'',info:p.link||'',stock:p.stock!=='out',size:p.tam||100,margin:p.margin,disc5:p.disc5,disc10:p.disc10,round_to:p.roundTo!=null?parseInt(p.roundTo):null,extra_cost:p.ce||0,pl:p.pl||0,pc:p.pc||0,p25:p.p25||0,p5:p.p5||0,p10:p.p10||0};
+  const row={type:p.tipo||'',brand:p.marca||'',name:p.nombre||'',img:p.img||'',img_insp:p.inspo||'',info:p.link||'',stock:p.stock!=='out',size:p.tam||100,margin:p.margin,disc5:p.disc5,disc10:p.disc10,round_to:p.roundTo!=null?parseInt(p.roundTo):null,extra_cost:p.ce||0,ajuste:p.aj||1,pl:p.pl||0,pc:p.pc||0,p25:p.p25||0,p5:p.p5||0,p10:p.p10||0};
   if(p.dbId)row.id=p.dbId;
   const r=await fetch(`${SB_URL}/rest/v1/${TABLE}`,{method:'POST',headers:{...SB_HDR,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(row)});
   if(!r.ok)throw new Error(await r.text());
@@ -101,7 +150,7 @@ async function sbSavePedido(data){
   const saved=await rp.json();const pid=(Array.isArray(saved)?saved[0]:saved).id;
   if(data.items.length){
     const ri=await fetch(`${SB_URL}/rest/v1/PedidosItems`,{method:'POST',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify(data.items.map(i=>({...i,pedido_id:pid})))});
-    if(!ri.ok)throw new Error(await ri.text());
+    if(!ri.ok){const msg=await ri.text();await fetch(`${SB_URL}/rest/v1/Pedidos?id=eq.${pid}`,{method:'DELETE',headers:SB_HDR}).catch(()=>{});throw new Error(msg);}
   }
   return pid;
 }
@@ -184,19 +233,12 @@ const fd=n=>n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDig
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 function roundPrice(v,roundTo){const t=+roundTo;return t>0?Math.ceil(v/t)*t:Math.round(v);}
-function priceCalc({pc,tam,ce,margin,disc5,disc10,roundTo}){
-  const cml=(+pc||0)/((+tam)||100),mg=+margin||0,extra=+ce||0;
+function priceCalc({pc,aj,tam,ce,margin,disc5,disc10,roundTo}){
+  const cml=(+pc||0)*((+aj)||1)/((+tam)||100),mg=+margin||0,extra=+ce||0;
   return[{ml:2.5,id:'25',d:0},{ml:5,id:'5',d:+disc5||0},{ml:10,id:'10',d:+disc10||0}].map(({ml,id,d})=>{
     const ct=cml*ml+extra,v=roundPrice((ct*(1+mg/100)/ml)*(1-d/100)*ml,roundTo);
     return{ml,id,d,ct,v,gan:v-ct,pml:v/ml};
   });
-}
-function priceDiff(p){
-  if(!p.pc)return null;
-  const[a,b,c]=priceCalc(p).map(x=>x.v);
-  const tol=2;
-  const ok=Math.abs(a-p.p25)<=tol&&Math.abs(b-p.p5)<=tol&&Math.abs(c-p.p10)<=tol;
-  return ok?false:{p25:a,p5:b,p10:c};
 }
 function usl(el){el.style.setProperty('--p',((+el.value-+el.min)/(+el.max-+el.min)*100)+'%');}
 function onF(slot,inp){const file=inp.files[0];if(!file)return;const m=slot==='m';const th=document.getElementById(m?'iT':'sT');th.src=URL.createObjectURL(file);th.style.display='block';document.getElementById(m?'iI':'sI').style.display='none';document.getElementById(m?'iH':'sH').textContent=file.name.slice(0,16);pf[slot]=file;}
@@ -209,22 +251,23 @@ function calc(){
   const pl=+document.getElementById('pL').value||0,tam=+document.getElementById('tam').value||100,pc=+document.getElementById('pC').value||0,ce=+document.getElementById('ce').value||0,mg=+document.getElementById('mg').value,d5=+document.getElementById('d5').value||0,d10=+document.getElementById('d10').value||0;
   ['mg','d5','d10'].forEach(id=>usl(document.getElementById(id)));
   document.getElementById('mgV').textContent=mg+'%';document.getElementById('d5V').textContent=d5?'−'+d5+'%':'0%';document.getElementById('d10V').textContent=d10?'−'+d10+'%':'0%';
+  const aj=+document.getElementById('fAj').value||1;
+  updAjInfo(pc,aj);
   if(!pc){rst();return;}
-  const cml=pc/tam;
+  const cml=pc*aj/tam;
   const roundTo=document.getElementById('rnd').checked?document.getElementById('rto').value:null;
-  const dat=priceCalc({pc,tam,ce,margin:mg,disc5:d5,disc10:d10,roundTo});
+  const dat=priceCalc({pc,aj,tam,ce,margin:mg,disc5:d5,disc10:d10,roundTo});
   lp={p25:dat[0].v,p5:dat[1].v,p10:dat[2].v};
-  updPriceWarn();
   dat.forEach((x,i)=>{const card=document.getElementById('rc'+x.id);card.classList.add('on');card.classList.toggle('best',i===2);document.getElementById('p'+x.id).textContent=f(x.v);document.getElementById('c'+x.id).textContent='$'+f(x.ct);document.getElementById('g'+x.id).textContent='$'+f(x.gan);document.getElementById('m'+x.id).textContent='$'+fd(x.pml)+'/ml';});
   let h=`<table class="rt"><thead><tr><th>Concepto</th><th>2.5ml</th><th>5ml</th><th>10ml</th></tr></thead><tbody>`;
   h+=`<tr><td>Costo total</td>${dat.map(x=>`<td>$${f(x.ct)}</td>`).join('')}</tr>`;
   h+=`<tr class="tot"><td>Precio de venta</td>${dat.map(x=>`<td>$${f(x.v)}</td>`).join('')}</tr>`;
   if(pl>0){h+=`<tr class="chk"><td>Total al vender ${tam}ml</td>${dat.map(x=>`<td>$${f(x.v*(tam/x.ml))}</td>`).join('')}</tr>`;h+=`<tr class="chks"><td>vs lista ($${f(pl)})</td>${dat.map(x=>{const t=x.v*(tam/x.ml),pct=(t/pl*100).toFixed(0),c=t>pl*1.5?'color:#d48a8a':t>pl*1.1?'color:rgba(184,147,90,.7)':'color:#7ab896';return`<td style="${c}">${pct}%</td>`;}).join('')}</tr>`;}
-  h+=`</tbody></table><div class="stag">Compra: <strong>$${f(pc)}</strong> · Costo/ml: <strong>$${fd(cml)}</strong> · Margen: <strong>${mg}%</strong></div>`;
+  h+=`</tbody></table><div class="stag">Compra: <strong>$${f(pc)}</strong>${aj!==1?` · Actualizado: <strong>$${f(pc*aj)}</strong>`:''} · Costo/ml: <strong>$${fd(cml)}</strong> · Margen: <strong>${mg}%</strong></div>`;
   document.getElementById('det').innerHTML=h;
   const b=document.getElementById('bsv');b.classList.add('ok');b.textContent='Guardar en catálogo →';
 }
-function rst(){lp=null;updPriceWarn();['25','5','10'].forEach(id=>{['p','c','g','m'].forEach(p=>{const el=document.getElementById(p+id);if(el)el.textContent='—';});document.getElementById('rc'+id).classList.remove('on','best');});document.getElementById('det').innerHTML='<div class="ei">Ingresá los datos para ver el resumen.</div>';document.getElementById('bsv').classList.remove('ok');document.getElementById('bsv').textContent='Guardar en catálogo';}
+function rst(){lp=null;['25','5','10'].forEach(id=>{['p','c','g','m'].forEach(p=>{const el=document.getElementById(p+id);if(el)el.textContent='—';});document.getElementById('rc'+id).classList.remove('on','best');});document.getElementById('det').innerHTML='<div class="ei">Ingresá los datos para ver el resumen.</div>';document.getElementById('bsv').classList.remove('ok');document.getElementById('bsv').textContent='Guardar en catálogo';}
 function rfm(editing=false){
   ['fMarca','fNom','fLink'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fDbId').value='';document.getElementById('fTipo').value='';stk('in');ib.m='';ib.i='';pf.m=null;pf.i=null;
@@ -234,7 +277,7 @@ function rfm(editing=false){
   document.getElementById('fIF').value='';document.getElementById('fIS').value='';
   ['pL','pC'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ce').value=CFG.costo_fijo||0;document.getElementById('tam').value='100';
-  EDIT_ORIG=null;
+  document.getElementById('fAj').value='1';
   setRange('mg',60,10,500);setRange('d5',10,0,30);setRange('d10',20,0,40);
   [...document.getElementById('rto').options].forEach(o=>{if(!['100','500','1000'].includes(o.value))o.remove();});
   document.getElementById('rnd').checked=false;document.getElementById('rto').value='100';
@@ -249,7 +292,7 @@ async function save(){
   const rawDbId=document.getElementById('fDbId').value;
   const rawCod=document.getElementById('fCod').value;
   const resolvedId=rawDbId?parseInt(rawDbId):(rawCod?parseInt(rawCod):null);
-  const p={dbId:resolvedId,tipo:document.getElementById('fTipo').value,marca:document.getElementById('fMarca').value.trim(),nombre:n,img:ib.m,inspo:ib.i,link:document.getElementById('fLink').value.trim(),stock:document.getElementById('fStk').value,p25:lp.p25,p5:lp.p5,p10:lp.p10,pl:+document.getElementById('pL').value||0,pc:+document.getElementById('pC').value||0,tam:+document.getElementById('tam').value||100,ce:+document.getElementById('ce').value||0,margin:+document.getElementById('mg').value,disc5:+document.getElementById('d5').value||0,disc10:+document.getElementById('d10').value||0,roundTo:document.getElementById('rnd').checked?document.getElementById('rto').value:null};
+  const p={dbId:resolvedId,tipo:document.getElementById('fTipo').value,marca:document.getElementById('fMarca').value.trim(),nombre:n,img:ib.m,inspo:ib.i,link:document.getElementById('fLink').value.trim(),stock:document.getElementById('fStk').value,p25:lp.p25,p5:lp.p5,p10:lp.p10,pl:+document.getElementById('pL').value||0,pc:+document.getElementById('pC').value||0,tam:+document.getElementById('tam').value||100,ce:+document.getElementById('ce').value||0,aj:+document.getElementById('fAj').value||1,margin:+document.getElementById('mg').value,disc5:+document.getElementById('d5').value||0,disc10:+document.getElementById('d10').value||0,roundTo:document.getElementById('rnd').checked?document.getElementById('rto').value:null};
   const b=document.getElementById('bsv');b.textContent='Guardando…';b.style.opacity='.5';b.style.pointerEvents='none';
   syncToast('Guardando…','loading');
   try{
@@ -263,38 +306,17 @@ async function save(){
     setTimeout(()=>{b.style.background='';b.style.pointerEvents='';rfm();},1300);
   }catch(e){syncToast(e.message,'err');b.textContent='Error';b.style.background='var(--red)';b.style.opacity='1';setTimeout(()=>{b.style.background='';b.style.pointerEvents='';b.classList.add('ok');b.textContent='Guardar →';},2500);}
 }
-let EDIT_ORIG=null;
+function updAjInfo(pc,aj){
+  const el=document.getElementById('ajInfo');
+  el.style.display=pc&&aj!==1?'block':'none';
+  if(pc&&aj!==1)el.textContent=`Inflación acumulada ×${aj.toFixed(4).replace('.',',')} → costo actualizado $${f(pc*aj)}. Si cargás un precio de compra nuevo, se reinicia.`;
+}
+function onPcInput(){document.getElementById('fAj').value='1';calc();}
 function setRange(id,val,defMin,defMax){const el=document.getElementById(id);el.min=Math.min(defMin,Math.floor(val));el.max=Math.max(defMax,Math.ceil(val));el.step=Number.isInteger(+val)?1:Number.isInteger(+val*10)?0.1:"any";el.value=val;}
-function updPriceWarn(){
-  const el=document.getElementById('pwarn');if(!el)return;
-  if(!EDIT_ORIG||!lp){el.style.display='none';return;}
-  const tol=2;
-  const same=['p25','p5','p10'].every(k=>Math.abs(lp[k]-EDIT_ORIG[k])<=tol);
-  if(same){el.style.display='none';return;}
-  el.innerHTML=`<strong>Atención:</strong> en el catálogo este perfume figura a <strong>$${f(EDIT_ORIG.p25)} · $${f(EDIT_ORIG.p5)} · $${f(EDIT_ORIG.p10)}</strong>, pero con estos datos el cálculo da otros precios. Si guardás, se reemplazan por los de arriba.<br><button type="button" class="pwarn-btn" onclick="keepOrigPrices()">Ajustar costo y envase para mantener los precios del catálogo</button>`;
-  el.style.display='block';
-}
-function fitCost(p){
-  const mg=1+(+p.margin||0)/100,tam=(+p.tam)||100,tol=2;
-  const check=(pc,ce)=>{const sim=priceCalc({...p,pc,ce}).map(x=>x.v);return{pc,ce,sim,exact:Math.abs(sim[0]-p.p25)<=tol&&Math.abs(sim[1]-p.p5)<=tol&&Math.abs(sim[2]-p.p10)<=tol};};
-  const a25=p.p25/mg,a10=p.p10/(mg*(1-(+p.disc10||0)/100)),slope=(a10-a25)/7.5;
-  const pc2=Math.floor(slope*tam),ce2=Math.round(a25-2.5*slope);
-  if(pc2>0&&ce2>=0){const r=check(pc2,ce2);if(r.exact)return r;}
-  const pc1=Math.floor((p.p25/mg-(+p.ce||0))*tam/2.5);
-  return pc1>0?check(pc1,+p.ce||0):null;
-}
-function keepOrigPrices(){
-  if(!EDIT_ORIG)return;
-  const g=id=>document.getElementById(id);
-  const r=fitCost({...EDIT_ORIG,tam:g('tam').value,ce:g('ce').value,margin:g('mg').value,disc5:g('d5').value,disc10:g('d10').value,roundTo:g('rnd').checked?g('rto').value:null});
-  if(!r||!r.exact){toast('No se pueden mantener exactos: los precios del catálogo no respetan el redondeo o se cargaron a mano. Revisalos y guardá los que quieras.','err',6000);return;}
-  g('pC').value=r.pc;g('ce').value=r.ce;calc();
-  toast(`Costo de compra $${f(r.pc)} y envase $${f(r.ce)} — revisá y guardá`);
-}
 function ltc(key){
   const p=CAT.find(x=>x.key===key);if(!p)return;
   rfm(true);
-  EDIT_ORIG={p25:p.p25,p5:p.p5,p10:p.p10};
+  document.getElementById('fAj').value=p.aj||1;
   document.getElementById('fDbId').value=p.dbId||'';document.getElementById('fCod').value=String(p.dbId||'').padStart(5,'0');
   document.getElementById('fMarca').value=p.marca||'';document.getElementById('fNom').value=p.nombre||'';
   document.getElementById('fTipo').value=p.tipo||'';document.getElementById('fLink').value=p.link||'';stk(p.stock||'in');
@@ -380,7 +402,10 @@ let _dk=null;
 function cdel(k){const n=(CAT.find(x=>x.key===k)||{}).nombre||'';_dk=k;document.getElementById('dm').textContent=`¿Eliminar "${n}"?`;document.getElementById('ovD').classList.add('on');}
 document.getElementById('bdk').onclick=async()=>{
   if(!_dk)return;syncToast('Eliminando…','loading');
-  try{const p=CAT.find(x=>x.key===_dk);await sbDeletePerf(p?p.dbId:_dk);CAT=CAT.filter(x=>x.key!==_dk);_dk=null;ubadge();umf();cov('ovD');rcat(document.getElementById('catq').value||'');syncToast('Eliminado','ok');}
+  try{const p=CAT.find(x=>x.key===_dk);
+    const used=await(await sbOk(await fetch(`${SB_URL}/rest/v1/PedidosItems?perfume_id=eq.${p?p.dbId:_dk}&select=id&limit=1`,{headers:SB_HDR}))).json();
+    if(used.length){cov('ovD');syncToast('Tiene pedidos: marcalo "sin stock" en lugar de borrarlo','err');return;}
+    await sbDeletePerf(p?p.dbId:_dk);CAT=CAT.filter(x=>x.key!==_dk);_dk=null;ubadge();umf();cov('ovD');rcat(document.getElementById('catq').value||'');syncToast('Eliminado','ok');}
   catch(e){syncToast(e.message,'err');}
 };
 
@@ -400,15 +425,12 @@ function inflCf(mult,oldCf,cfInput){return cfInput==null?Math.round((+oldCf||0)*
 function inflRow(p,mult,oldCf,cfInput){
   const ce0=+p.ce||0;
   const ce=cfInput!=null&&Math.abs(ce0-(+oldCf||0))<0.01?cfInput:Math.round(ce0*mult);
-  const pc=p.pc?Math.floor(p.pc*mult):0;
+  const aj=Math.round((p.aj||1)*mult*1e6)/1e6;
   const pl=p.pl?Math.round(p.pl*mult):0;
   let prices;
-  if(pc&&priceDiff(p)===false){
-    const[a,b,c]=priceCalc({...p,pc,ce}).map(x=>x.v);prices={p25:a,p5:b,p10:c};
-  }else{
-    prices={p25:Math.round(p.p25*mult),p5:Math.round(p.p5*mult),p10:Math.round(p.p10*mult)};
-  }
-  return{id:p.dbId,body:{...prices,pc,pl,extra_cost:ce}};
+  if(p.pc){const[a,b,c]=priceCalc({...p,aj,ce}).map(x=>x.v);prices={p25:a,p5:b,p10:c};}
+  else prices={p25:Math.round(p.p25*mult),p5:Math.round(p.p5*mult),p10:Math.round(p.p10*mult)};
+  return{id:p.dbId,body:{...prices,ajuste:aj,pl,extra_cost:ce}};
 }
 let _inflBusy=false;
 async function applyInflacion(){
@@ -422,8 +444,9 @@ async function applyInflacion(){
   const cfInput=cfIn!=null&&Math.abs(cfIn-(+CFG.costo_fijo||0))>=0.01?cfIn:null;
   const cf=inflCf(mult,CFG.costo_fijo,cfInput);
   const rows=CAT.map(p=>inflRow(p,mult,CFG.costo_fijo,cfInput));
-  const desf=CAT.filter(p=>priceDiff(p)).length;
-  if(!confirm(`Se van a actualizar los precios de ${CAT.length} perfumes un ${pct}%.`+(desf?`\n\n${desf} perfume(s) tienen el costo de compra desfasado: se les multiplica el precio actual sin redondear. Podés corregirlos con el botón "⚖ Costos".`:'')+'\n\n¿Continuar?'))return;
+  const last=CFG.infl_fecha?new Date(CFG.infl_fecha):null,now=new Date();
+  const sameMonth=last&&last.getFullYear()===now.getFullYear()&&last.getMonth()===now.getMonth();
+  if(!confirm((sameMonth?`⚠ Este mes ya aplicaste ${CFG.inflacion}% el ${fmtDate(CFG.infl_fecha)}.\n\n`:'')+`Se van a actualizar los precios de ${CAT.length} perfumes un ${pct}%. El precio de compra no cambia: se guarda el ajuste por inflación.\n\n¿Continuar?`))return;
   _inflBusy=true;cov('ovInfl');
   document.getElementById('pl').classList.add('on');document.getElementById('plMsg').textContent='Actualizando precios…';
   syncToast('Aplicando '+pct+'%…','loading');
@@ -447,41 +470,6 @@ async function applyInflacion(){
     }else syncToast('Precios actualizados — '+CAT.length+' perfumes','ok');
   }catch(e){syncToast(e.message,'err');}
   finally{_inflBusy=false;document.getElementById('pl').classList.remove('on');document.getElementById('plMsg').textContent='Generando PDF…';}
-}
-
-function openCostModal(){
-  const list=CAT.map(p=>{const d=priceDiff(p);if(!d)return null;return{p,d,fit:fitCost(p)};}).filter(Boolean);
-  const body=document.getElementById('costBody');
-  if(!list.length){body.innerHTML='<p class="cost-ok">Todo coincide: los precios del catálogo son los mismos que muestra "Editar".</p>';document.getElementById('costApply').style.display='none';}
-  else{
-    document.getElementById('costApply').style.display='';
-    body.innerHTML=`<p class="cost-help">Estos ${list.length} perfumes muestran un precio en el catálogo y otro al editarlos. Se puede ajustar su <strong>costo de compra y envase</strong> para que coincidan (la inflación anterior los subía junto con el precio). <strong>Los precios del catálogo no cambian.</strong></p>
-<div class="cost-tbl">${list.map(({p,d,fit},i)=>{
-  const ok=!!fit;const sim=ok?fit.sim:null;
-  return`<label class="cost-row${ok?'':' dis'}"><input type="checkbox" data-i="${i}" ${ok?(fit.exact?'checked':''):'disabled'}>
-  <span class="cost-n">${esc(p.nombre)}<small>${esc(p.marca)}</small></span>
-  <span class="cost-v"><small>Catálogo</small>$${f(p.p25)} · $${f(p.p5)} · $${f(p.p10)}</span>
-  <span class="cost-v"><small>Editar hoy</small>$${f(d.p25)} · $${f(d.p5)} · $${f(d.p10)}</span>
-  <span class="cost-v"><small>Costo / envase</small>${ok?`$${f(p.pc)} → <strong>$${f(fit.pc)}</strong> / $${f(p.ce)} → <strong>$${f(fit.ce)}</strong>`:'no se puede calcular'}</span>
-  ${ok?`<span class="cost-v"><small>Editar después${fit.exact?'':' (aprox.)'}</small>$${f(sim[0])} · $${f(sim[1])} · $${f(sim[2])}</span>`:''}
-</label>`;}).join('')}</div>`;
-  }
-  _costList=list;
-  document.getElementById('ovCost').classList.add('on');
-}
-let _costList=[];
-async function applyCostFix(){
-  const sel=[...document.querySelectorAll('#costBody input[type=checkbox]:checked')].map(c=>_costList[+c.dataset.i]).filter(Boolean);
-  if(!sel.length){toast('No hay perfumes seleccionados','err');return;}
-  if(!confirm(`Se va a actualizar SOLO el costo de compra y envase de ${sel.length} perfume(s). Los precios del catálogo no cambian. ¿Continuar?`))return;
-  cov('ovCost');syncToast('Ajustando costos…','loading');
-  const fails=[];
-  for(const{p,fit}of sel){
-    try{const r=await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${p.dbId}`,{method:'PATCH',headers:SB_HDR,body:JSON.stringify({pc:fit.pc,extra_cost:fit.ce})});if(!r.ok)throw new Error(await r.text());}
-    catch(e){fails.push(p.nombre);}
-  }
-  try{CAT=await sbGet();await loadSales();rcat(document.getElementById('catq').value||'');}catch{}
-  if(fails.length)syncToast('No se ajustaron: '+fails.join(', '),'err');else syncToast(`Costo ajustado en ${sel.length} perfume(s)`,'ok');
 }
 
 // PEDIDO helpers
@@ -628,6 +616,19 @@ async function startEditPedido(ped,ev){
   setTimeout(()=>{document.querySelector('.pd-items-col').scrollTop=0;},120);
 }
 
+function waPhone(t){const d=String(t||'').replace(/\D/g,'');return d.length===10?'549'+d:d;}
+async function waPedido(id,ev){
+  ev.stopPropagation();
+  const ped=PEDIDOS.find(x=>x.id===id);if(!ped)return;
+  const w=window.open('','_blank');
+  try{
+    const items=await sbGetPedidoItems(id);
+    const lines=items.map(i=>`• ${i.perfume_nombre} ${String(i.ml).replace('.',',')} ml × ${i.qty} — $${f((i.precio_unit||0)*i.qty)}`);
+    const txt=`Hola${ped.cliente_nombre?' '+ped.cliente_nombre:''}! Te paso el detalle de tu pedido #${String(id).padStart(5,'0')}:\n${lines.join('\n')}\nTotal: $${f(ped.total_venta||0)}`;
+    const url=`https://wa.me/${waPhone(ped.cliente_tel)}?text=${encodeURIComponent(txt)}`;
+    if(w)w.location.href=url;else location.href=url;
+  }catch(e){if(w)w.close();syncToast(e.message,'err');}
+}
 let _delPedId=null;
 function deletePedido(id,ev){
   ev.stopPropagation();_delPedId=id;
@@ -678,6 +679,7 @@ function renderPedidos(){
       ${gan>0?`<span class="ped-gan">+$${f(gan)} gan.</span>`:''}
     </div>
     <div class="ped-acts-row">
+      <button class="ped-btn" onclick="waPedido(${p.id},event)" title="Enviar resumen por WhatsApp">WhatsApp</button>
       <button class="ped-btn" onclick="startEditPedido(JSON.parse(this.dataset.ped),event)" data-ped="${pedJSON}">✎ Editar</button>
       <button class="ped-btn del" onclick="deletePedido(${p.id},event)">✕</button>
     </div>
@@ -769,6 +771,8 @@ async function xpdf(_returnBlob=false){
     const brandsSeen=new Set();const brandList=[];
     for(const p of catSorted){const m=p.marca||'Sin marca';if(!brandsSeen.has(m)){brandsSeen.add(m);brandList.push(m);}}
 
+    const IMG={};
+    await Promise.all([...new Set(CAT.flatMap(p=>[p.img,p.inspo]).filter(Boolean))].map(async u=>{IMG[u]=await fi(u);}));
     for(const brand of brandList){
       const items=catSorted.filter(p=>(p.marca||'Sin marca')===brand);
       if(curY+7>PAGE_BOT)curY=newpage();
@@ -794,7 +798,7 @@ async function xpdf(_returnBlob=false){
         const midY=ry+ROW_H/2+1.4;
 
         // perf image — centered in cell
-        const imgD=await fi(p.img);
+        const imgD=IMG[p.img]||null;
         if(imgD){
           const ix=cx('perf')-IMG_W/2, iy=ry+(ROW_H-IMG_H)/2;
           if(io){
@@ -815,7 +819,7 @@ async function xpdf(_returnBlob=false){
         [['p25',p.p25],['p5',p.p5],['p10',p.p10]].forEach(([k,v])=>doc.text('$'+f(v),cx(k),midY,{align:'center'}));
 
         // inspo — centered in cell
-        const insD=await fi(p.inspo);
+        const insD=IMG[p.inspo]||null;
         if(insD){
           const inx=cx('inspo')-IMG_W/2, iny=ry+(ROW_H-IMG_H)/2;
           if(io){
@@ -913,15 +917,16 @@ async function uploadToDrive(){
       const data=await r.json();
       fileId=data.id;
       // Hacer el archivo público (cualquiera con el link puede verlo)
-      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`,{
+      const rp=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`,{
         method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
         body:JSON.stringify({role:'reader',type:'anyone'})
       });
+      if(!rp.ok)throw new Error('PDF subido pero no se pudo hacer público ('+rp.status+')');
       await saveDriveId(fileId);
     }
     const link=`https://drive.google.com/file/d/${fileId}/view`;
-    try{await navigator.clipboard.writeText(link);}catch{}
-    toast('¡PDF subido a Drive! Link copiado: '+link);
+    let copied=false;try{await navigator.clipboard.writeText(link);copied=true;}catch{}
+    toast('¡PDF subido a Drive!'+(copied?' Link copiado: ':' Link: ')+link,'ok',8000);
   }catch(err){
     console.error(err);
     if(err.message?.includes('401')||err.message?.includes('invalid_token'))_gToken=null;
@@ -934,6 +939,24 @@ async function uploadToDrive(){
 }
 
 
+// ── BACKUP ──
+async function downloadBackup(){
+  syncToast('Generando backup…','loading');
+  try{
+    const out={fecha:new Date().toISOString()};
+    for(const t of['Perfumes','Pedidos','PedidosItems','Configuracion']){
+      out[t]=[];
+      for(let off=0;;off+=1000){
+        const rows=await(await sbOk(await fetch(`${SB_URL}/rest/v1/${t}?select=*${t==='Configuracion'?'':'&order=id.asc'}&limit=1000&offset=${off}`,{headers:SB_HDR}))).json();
+        out[t].push(...rows);if(rows.length<1000)break;
+      }
+    }
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,1)],{type:'application/json'}));
+    a.download=`vico-backup-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    syncToast(`Backup descargado (${out.Perfumes.length} perfumes, ${out.Pedidos.length} pedidos)`,'ok');
+  }catch(e){syncToast('Backup: '+e.message,'err');}
+}
+
 // ── DASHBOARD ──
 let _charts={};
 async function renderDashboard(){
@@ -941,8 +964,9 @@ async function renderDashboard(){
     await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   }
   // KPIs
-  const totalV=PEDIDOS.reduce((s,p)=>s+(p.total_venta||0),0);
-  const totalC=PEDIDOS.reduce((s,p)=>s+(p.total_costo||0),0);
+  const DONE=PEDIDOS.filter(p=>p.estado==='terminado');
+  const totalV=DONE.reduce((s,p)=>s+(p.total_venta||0),0);
+  const totalC=DONE.reduce((s,p)=>s+(p.total_costo||0),0);
   const pend=PEDIDOS.filter(p=>p.estado==='pendiente').length;
   const term=PEDIDOS.filter(p=>p.estado==='terminado').length;
   document.getElementById('dKpiPedidos').textContent=PEDIDOS.length;
@@ -959,8 +983,8 @@ async function renderDashboard(){
   // Monthly data (last 6 months)
   const months=[];const now=new Date();
   for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({label:d.toLocaleDateString('es-AR',{month:'short',year:'2-digit'}),key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`});}
-  const mV=months.map(m=>PEDIDOS.filter(p=>p.fecha&&p.fecha.startsWith(m.key)).reduce((s,p)=>s+(p.total_venta||0),0));
-  const mG=months.map(m=>PEDIDOS.filter(p=>p.fecha&&p.fecha.startsWith(m.key)).reduce((s,p)=>s+(p.total_venta||0)-(p.total_costo||0),0));
+  const mV=months.map(m=>DONE.filter(p=>p.fecha&&p.fecha.startsWith(m.key)).reduce((s,p)=>s+(p.total_venta||0),0));
+  const mG=months.map(m=>DONE.filter(p=>p.fecha&&p.fecha.startsWith(m.key)).reduce((s,p)=>s+(p.total_venta||0)-(p.total_costo||0),0));
   // Destroy old charts
   Object.values(_charts).forEach(c=>{try{c.destroy();}catch{}});_charts={};
   const CO={responsive:true,maintainAspectRatio:true};
@@ -969,7 +993,7 @@ async function renderDashboard(){
   // Chart 1: Monthly line (ventas y ganancias)
   _charts.m=new Chart(document.getElementById('chMensual'),{type:'line',data:{labels:months.map(m=>m.label),datasets:[{label:'Ventas',data:mV,borderColor:'rgba(184,147,90,.9)',backgroundColor:'rgba(184,147,90,.08)',tension:.35,fill:true,pointRadius:4,pointBackgroundColor:'rgba(184,147,90,.9)'},{label:'Ganancia',data:mG,borderColor:'rgba(59,107,72,.85)',backgroundColor:'rgba(59,107,72,.06)',tension:.35,fill:true,pointRadius:4,pointBackgroundColor:'rgba(59,107,72,.85)'}]},options:{...CO,plugins:{legend:{labels:{color:'#7a7268',font:{size:10,family:'Inter'},boxWidth:12}}},scales:{x:{ticks:tickC,grid:gridC},y:{ticks:{...tickC,callback:v=>'$'+f(v)},grid:gridC}}}});
   // Fetch PedidosItems for top charts
-  const allIds=PEDIDOS.map(p=>p.id);
+  const allIds=DONE.map(p=>p.id);
   let top=[],decantPerf={};
   if(allIds.length){
     try{
@@ -1224,5 +1248,10 @@ async function xFolleto() {
 
 // INIT
 document.querySelectorAll('input[type=range]').forEach(usl);
-const CFG_READY=loadConfig();
 initLogos();
+(async()=>{
+  let s=null;try{s=JSON.parse(localStorage.getItem('vico_session')||'null');}catch{}
+  if(!s||!s.refresh_token)return;
+  SESSION=s;
+  if(await refreshSession())enterApp();
+})();

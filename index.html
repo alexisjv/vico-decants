@@ -14,10 +14,11 @@
   <div class="login-box">
     <img class="login-logo" id="login-logo" src="" alt="VICO">
     <h1>Vico Inventario</h1>
-    <p>Ingresá tu contraseña para continuar</p>
-    <input type="password" id="lpwd" placeholder="Contraseña">
+    <p>Ingresá con tu usuario para continuar</p>
+    <input type="email" id="lemail" placeholder="Email" autocomplete="username">
+    <input type="password" id="lpwd" placeholder="Contraseña" autocomplete="current-password">
     <button class="btn-primary" style="width:100%;padding:11px" onclick="doLogin()">Entrar</button>
-    <div class="login-err" id="lerr">Contraseña incorrecta</div>
+    <div class="login-err" id="lerr"></div>
   </div>
 </div>
 
@@ -26,6 +27,7 @@
   <button class="tab"    onclick="sv('vcat')">Catálogo&thinsp;<span class="badge" id="cn"></span></button>
   <button class="tab"    onclick="sv('vpd')">Pedidos&thinsp;<span class="badge" id="pbn" style="display:none"></span></button>
   <button class="tab"    onclick="sv('vdash')">Dashboard</button>
+  <button class="tab tab-out" onclick="doLogout()" title="Cerrar sesión">Salir</button>
 </nav>
 <div class="toast" id="toast"></div>
 
@@ -58,7 +60,7 @@
       <div class="fg">
         <div class="r2">
           <div class="f"><label>Precio de lista <span class="rbadge">Ref.</span></label><div class="iw"><span class="sym l">$</span><input type="number" id="pL" class="pl" placeholder="0" min="0" oninput="calc()"></div></div>
-          <div class="f"><label>Precio de compra</label><div class="iw"><span class="sym l">$</span><input type="number" id="pC" class="pl" placeholder="0" min="0" oninput="calc()"></div></div>
+          <div class="f"><label>Precio de compra</label><div class="iw"><span class="sym l">$</span><input type="number" id="pC" class="pl" placeholder="0" min="0" oninput="onPcInput()"></div><input type="hidden" id="fAj" value="1"><div class="aj-info" id="ajInfo" style="display:none"></div></div>
         </div>
         <div class="r2">
           <div class="f"><label>Tamaño del frasco</label><div class="iw"><input type="number" id="tam" value="100" class="pr" min="1" oninput="calc()"><span class="sym r">ml</span></div></div>
@@ -85,7 +87,6 @@
         <div class="pcard" id="rc10"><div class="ph2"><div><span class="pml">10<small>ML</small></span></div><div class="pprice"><span class="cur">$</span><span id="p10">—</span></div></div><div class="pstats"><div><div class="pst-l">Costo</div><div class="pst-v" id="c10">—</div></div><div><div class="pst-l">Ganancia</div><div class="pst-v pos" id="g10">—</div></div><div><div class="pst-l">$/ml</div><div class="pst-v hl" id="m10">—</div></div></div></div>
       </div>
     </div>
-    <div class="pwarn" id="pwarn" style="display:none"></div>
     <div style="animation:up .4s .14s ease both"><div class="sl">Resumen</div><div id="det"><div class="ei">Ingresá los datos para ver el resumen.</div></div></div>
   </div>
 </div>
@@ -103,7 +104,6 @@
     </div>
     <div class="vtog"><button class="vb on" id="vg" onclick="vm('g')">⊞</button><button class="vb" id="vl" onclick="vm('l')">☰</button></div>
     <button class="bpdf" onclick="openInflModal()" title="Actualizar precios por inflación">%</button>
-    <button class="bpdf" onclick="openCostModal()" title="Revisar perfumes cuyo precio no coincide con el de Editar">⚖ Costos</button>
     <button class="bpdf" onclick="xpdf()">↓ PDF</button>
     <button class="bpdf" id="bDrive" onclick="uploadToDrive()">↑ Drive</button>
     <button class="bpdf" onclick="xFolleto()" title="Generar folleto con los primeros 4 perfumes en stock">◈ Folleto</button>
@@ -182,6 +182,7 @@
 <!-- ══ DASHBOARD ══ -->
 <div class="view" id="vdash">
   <div class="dash-wrap">
+    <div class="dash-tools"><button class="bpdf" onclick="downloadBackup()" title="Descargar todos los datos en un archivo">⤓ Backup</button></div>
     <!-- Fila 1: KPI cards -->
     <div class="dash-kpis">
       <div class="dash-kpi">
@@ -206,11 +207,11 @@
       </div>
       <div class="dash-money-col">
         <div class="dash-cbox">
-          <div class="dkpi-l">Ventas totales</div>
+          <div class="dkpi-l">Ventas (pedidos terminados)</div>
           <div class="dkpi-v" id="dKpiVenta">—</div>
         </div>
         <div class="dash-cbox">
-          <div class="dkpi-l">Ganancia total</div>
+          <div class="dkpi-l">Ganancia (pedidos terminados)</div>
           <div class="dkpi-v grn" id="dKpiGan">—</div>
         </div>
       </div>
@@ -241,7 +242,7 @@
   <div class="infl-modal">
     <div class="infl-top">
       <h3>Actualizar precios del catálogo</h3>
-      <p>Se aumentan el costo de compra y el envase de cada perfume en el % indicado y se recalcula con su margen y descuentos. Sin redondeo, el precio sube exactamente ese %; con redondeo, se redondea hacia arriba al múltiplo elegido. Si cambiás el costo fijo de envase, se aplica a los perfumes que usan el costo fijo general.</p>
+      <p>El precio de compra no cambia: se guarda la inflación acumulada de cada perfume y el envase sube el mismo %. Sin redondeo, el precio sube exactamente ese %; con redondeo, se redondea hacia arriba al múltiplo elegido. Si cambiás el costo fijo de envase, se aplica a los perfumes que usan el costo fijo general.</p>
       <div class="infl-chips" id="inflChips"></div>
     </div>
     <div class="infl-body">
@@ -252,22 +253,6 @@
       <div class="infl-act">
         <button class="infl-btn-cancel" onclick="cov('ovInfl')">Cancelar</button>
         <button class="infl-btn-apply" onclick="applyInflacion()">Aplicar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="ov" id="ovCost">
-  <div class="infl-modal cost-modal">
-    <div class="infl-top">
-      <h3>Revisar costos</h3>
-      <p>Perfumes cuyo precio en el catálogo no coincide con el que aparece al tocar "Editar".</p>
-    </div>
-    <div class="infl-body">
-      <div id="costBody"></div>
-      <div class="infl-act">
-        <button class="infl-btn-cancel" onclick="cov('ovCost')">Cerrar</button>
-        <button class="infl-btn-apply" id="costApply" onclick="applyCostFix()">Ajustar costo de los marcados</button>
       </div>
     </div>
   </div>
