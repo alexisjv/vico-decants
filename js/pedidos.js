@@ -217,7 +217,12 @@ document.addEventListener('click',e=>{if(!$('pddrop').contains(e.target)&&e.targ
 
 function clientes(){
   const m=new Map();
-  PEDIDOS.forEach(p=>{const n=(p.cliente_nombre||'').trim();if(n&&!m.has(n.toLowerCase()))m.set(n.toLowerCase(),p);});
+  PEDIDOS.forEach(p=>{
+    const n=(p.cliente_nombre||'').trim();if(!n)return;
+    const c=m.get(n.toLowerCase())||{cliente_nombre:n};
+    ['cliente_tel','cliente_email','cliente_dir'].forEach(k=>{if(!c[k]&&p[k])c[k]=p[k];});
+    m.set(n.toLowerCase(),c);
+  });
   return m;
 }
 function updClientList(){$('vClientes').innerHTML=[...clientes().values()].map(p=>`<option value="${esc(p.cliente_nombre)}">`).join('');}
