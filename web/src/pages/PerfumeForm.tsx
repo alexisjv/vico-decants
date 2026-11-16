@@ -90,7 +90,7 @@ export default function PerfumeForm() {
   if (editando && !original) return <p className="py-10 text-center text-niebla">Cargando perfume…</p>;
 
   return (
-    <div className="pb-24 lg:pb-0">
+    <div className="pb-40 lg:pb-0">
       <header className="mb-4 flex items-center gap-2">
         <button onClick={() => navegar(-1)} aria-label="Volver" className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-crema-2"><ArrowLeft size={22} /></button>
         <div className="min-w-0 flex-1">
@@ -109,9 +109,14 @@ export default function PerfumeForm() {
             </div>
             <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Tipo">
               {(['Nicho', 'Diseñador', 'Arabe'] as Tipo[]).map((t) => <Chip key={t} activo={p.tipo === t} onClick={() => set('tipo', p.tipo === t ? '' : t)}>{t === 'Arabe' ? 'Árabe' : t}</Chip>)}
-              <span className="mx-1 w-px bg-borde" />
-              <Chip activo={p.stock} onClick={() => set('stock', !p.stock)}>{p.stock ? 'En stock' : 'Sin stock'}</Chip>
             </div>
+            <button type="button" role="switch" aria-checked={p.stock} onClick={() => set('stock', !p.stock)}
+              className="mt-3 flex min-h-12 w-full items-center justify-between rounded-xl bg-crema px-3 text-left">
+              <span className="text-[15px]">En stock</span>
+              <span aria-hidden="true" className={`relative h-7 w-12 rounded-full transition-colors ${p.stock ? 'bg-ok' : 'bg-borde-2'}`}>
+                <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${p.stock ? 'left-[22px]' : 'left-0.5'}`} />
+              </span>
+            </button>
             <Campo className="mt-3" label="Link de info (Fragrantica, etc.)" type="url" value={p.link} onChange={(e) => set('link', e.target.value)} placeholder="https://" />
             <div className="mt-3 grid grid-cols-2 gap-3">
               <Foto titulo="Foto del perfume" src={p.img} archivo={fotos.m} onElegir={(f) => setFotos((x) => ({ ...x, m: f }))} />

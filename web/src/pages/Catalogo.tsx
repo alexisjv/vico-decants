@@ -68,14 +68,14 @@ export default function Catalogo() {
 
       <div className="sticky top-0 z-30 -mx-4 bg-crema/95 px-4 pb-3 pt-1 backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:px-0">
         <div className="flex flex-wrap gap-2">
-          <label className="flex h-12 min-w-0 flex-1 basis-64 items-center gap-2.5 rounded-xl border border-borde-2 bg-papel px-3.5 focus-within:border-tinta">
+          <label className="flex h-12 min-w-0 flex-1 basis-0 items-center gap-2.5 rounded-xl border border-borde-2 bg-papel px-3.5 focus-within:border-tinta">
             <Search size={18} className="text-niebla" aria-hidden="true" />
             <span className="sr-only">Buscar perfume</span>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o marca" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-niebla/70" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o marca" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-niebla" />
           </label>
           <label className="flex h-12 items-center rounded-xl border border-borde-2 bg-papel px-3 text-[14px]">
             <span className="sr-only">Ordenar</span>
-            <select value={orden} onChange={(e) => setOrden(e.target.value as Orden)} className="bg-transparent outline-none">
+            <select value={orden} onChange={(e) => setOrden(e.target.value as Orden)} className="h-full w-full bg-transparent pr-1 outline-none">
               {Object.entries(ordenes).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
           </label>
@@ -86,38 +86,38 @@ export default function Catalogo() {
       </div>
 
       {cargando && !perfumes.length ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-36 animate-pulse rounded-xl2 bg-crema-2" />)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-36 animate-pulse rounded-xl2 bg-crema-2" />)}</div>
       ) : !lista.length ? (
         <Vacio titulo={perfumes.length ? 'Sin resultados' : 'Todavía no hay perfumes'} texto={perfumes.length ? 'Probá con otra búsqueda o filtro.' : 'Cargá el primero para armar tu catálogo.'}
           accion={!perfumes.length && <Boton onClick={() => navegar('/perfume/nuevo')}>Cargar perfume</Boton>} />
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
           {lista.map((p) => (
             <li key={p.id} className={`flex min-w-0 gap-3.5 rounded-xl2 border border-borde bg-papel p-3 transition-shadow hover:shadow-suave ${p.stock ? '' : 'opacity-75'}`}>
-              <Link to={`/perfume/${p.id}`} className="shrink-0" aria-label={`Editar ${p.nombre}`}>
-                <FotoPerfume src={p.img} alt={p.nombre} className={`h-28 w-[88px] rounded-xl ${p.stock ? '' : 'grayscale'}`} />
-              </Link>
+              <div className="flex w-[88px] shrink-0 flex-col gap-1.5">
+                <Link to={`/perfume/${p.id}`} aria-label={`Editar ${p.nombre}`}>
+                  <FotoPerfume src={p.img} alt={p.nombre} className={`h-24 w-[88px] rounded-xl ${p.stock ? '' : 'grayscale'}`} />
+                </Link>
+                <button
+                  onClick={() => alternarStock(p)}
+                  disabled={ocupado === p.id}
+                  aria-pressed={p.stock}
+                  aria-label={`${p.nombre}: ${p.stock ? 'en stock' : 'sin stock'}. Tocá para cambiar`}
+                  className={`h-11 rounded-xl text-[11px] font-semibold uppercase tracking-wide ${p.stock ? 'bg-ok-bg text-ok' : 'bg-mal-bg text-mal'}`}
+                >
+                  {p.stock ? 'En stock' : 'Sin stock'}
+                </button>
+              </div>
               <div className="flex min-w-0 flex-1 flex-col gap-2">
-                <div className="flex items-start justify-between gap-2">
-                  <Link to={`/perfume/${p.id}`} className="min-w-0">
-                    <h2 className="truncate font-serif text-[18px] font-semibold leading-tight">{p.nombre}</h2>
-                    <p className="truncate text-[13px] text-niebla">{[p.marca, etiquetaTipo(p.tipo)].filter(Boolean).join(' · ')}</p>
-                  </Link>
-                  <button
-                    onClick={() => alternarStock(p)}
-                    disabled={ocupado === p.id}
-                    aria-pressed={p.stock}
-                    aria-label={`${p.nombre}: ${p.stock ? 'en stock' : 'sin stock'}. Tocá para cambiar`}
-                    className={`h-8 shrink-0 rounded-full px-3 text-[11px] font-semibold uppercase tracking-wide ${p.stock ? 'bg-ok-bg text-ok' : 'bg-mal-bg text-mal'}`}
-                  >
-                    {p.stock ? 'En stock' : 'Sin stock'}
-                  </button>
-                </div>
+                <Link to={`/perfume/${p.id}`} className="min-h-11 min-w-0">
+                  <h2 className="line-clamp-2 break-words font-serif text-[18px] font-semibold leading-tight">{p.nombre}</h2>
+                  <p className="truncate text-[13px] text-niebla">{[p.marca, etiquetaTipo(p.tipo)].filter(Boolean).join(' · ')}</p>
+                </Link>
                 <div className="mt-auto grid grid-cols-3 gap-1.5">
                   {([['2,5 ml', p.p25], ['5 ml', p.p5], ['10 ml', p.p10]] as const).map(([l, v]) => (
                     <div key={l} className="rounded-lg bg-crema px-2 py-1.5">
                       <div className="text-[11px] text-niebla">{l}</div>
-                      <div className="text-[15px] font-bold">{pesos(v)}</div>
+                      <div className="text-[14px] font-bold tabular-nums tracking-tight">{pesos(v)}</div>
                     </div>
                   ))}
                 </div>

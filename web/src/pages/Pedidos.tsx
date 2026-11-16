@@ -63,7 +63,7 @@ export default function Pedidos() {
                     {p.notas && <p className="mt-0.5 line-clamp-2 text-[13px] text-niebla">{p.notas}</p>}
                   </Link>
                   <button onClick={() => alternar(p)} aria-label={`Marcar como ${fin ? 'pendiente' : 'terminado'}`}
-                    className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold ${fin ? 'bg-ok-bg text-ok' : 'bg-oro-claro/50 text-tinta'}`}>
+                    className={`flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold ${fin ? 'bg-ok-bg text-ok' : 'bg-oro-claro/50 text-tinta'}`}>
                     {fin ? <Check size={14} aria-hidden="true" /> : <Clock size={14} aria-hidden="true" />}{fin ? 'Terminado' : 'Pendiente'}
                   </button>
                 </div>

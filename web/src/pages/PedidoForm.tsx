@@ -88,7 +88,7 @@ export default function PedidoForm() {
   const c = (k: keyof typeof cliente) => ({ value: cliente[k], onChange: (e: React.ChangeEvent<HTMLInputElement>) => setCliente((x) => ({ ...x, [k]: e.target.value })) });
 
   return (
-    <div className="pb-24 lg:pb-0">
+    <div className="pb-40 lg:pb-0">
       <header className="mb-4 flex items-center gap-2">
         <button onClick={() => navegar('/pedidos')} aria-label="Volver" className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-crema-2"><ArrowLeft size={22} /></button>
         <div className="flex-1">
@@ -98,7 +98,7 @@ export default function PedidoForm() {
         {editando && <button onClick={() => setBorrar(true)} aria-label="Eliminar pedido" className="flex h-11 w-11 items-center justify-center rounded-full text-mal hover:bg-mal-bg"><Trash2 size={20} /></button>}
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_360px] lg:items-start">
+      <div className="grid gap-4 xl:grid-cols-[1fr_360px] xl:items-start">
         <div className="flex flex-col gap-4">
           <Seccion titulo="Perfumes">
             <label className="relative flex h-12 items-center gap-2.5 rounded-xl border border-borde-2 bg-white px-3.5 focus-within:border-tinta">
@@ -125,20 +125,20 @@ export default function PedidoForm() {
               <ul className="mt-2 divide-y divide-borde">
                 {lineas.map((l) => (
                   <li key={l.key} className="flex flex-wrap items-center gap-3 py-3">
-                    <div className="min-w-0 flex-1 basis-40">
+                    <div className="min-w-0 flex-1 basis-full sm:basis-40">
                       <div className="truncate font-serif text-[16px] font-semibold">{l.nombre}</div>
                       <div className="text-[12px] text-niebla">{pesos(precioDe(l))} c/u{l.precio != null && editando ? ' · precio cobrado' : ''}</div>
                     </div>
                     <div className="flex rounded-xl border border-borde-2 p-0.5" role="group" aria-label="Tamaño">
                       {TAMANOS.map((ml) => (
                         <button key={ml} onClick={() => cambiar(l.key, { ml, precio: null, costo: null })} aria-pressed={l.ml === ml}
-                          className={`h-9 rounded-lg px-2.5 text-[13px] font-semibold ${l.ml === ml ? 'bg-tinta text-papel' : 'text-niebla'}`}>{String(ml).replace('.', ',')}</button>
+                          className={`h-11 min-w-11 rounded-lg px-2.5 text-[13px] font-semibold ${l.ml === ml ? 'bg-tinta text-papel' : 'text-niebla'}`}>{String(ml).replace('.', ',')}</button>
                       ))}
                     </div>
                     <div className="flex items-center rounded-xl border border-borde-2">
-                      <button onClick={() => (l.qty > 1 ? cambiar(l.key, { qty: l.qty - 1 }) : setLineas((x) => x.filter((y) => y.key !== l.key)))} aria-label={l.qty > 1 ? 'Restar uno' : 'Quitar'} className="flex h-10 w-10 items-center justify-center">{l.qty > 1 ? <Minus size={16} /> : <X size={16} />}</button>
+                      <button onClick={() => (l.qty > 1 ? cambiar(l.key, { qty: l.qty - 1 }) : setLineas((x) => x.filter((y) => y.key !== l.key)))} aria-label={l.qty > 1 ? 'Restar uno' : 'Quitar'} className="flex h-11 w-11 items-center justify-center">{l.qty > 1 ? <Minus size={16} /> : <X size={16} />}</button>
                       <span className="w-7 text-center font-bold" aria-live="polite">{l.qty}</span>
-                      <button onClick={() => cambiar(l.key, { qty: l.qty + 1 })} aria-label="Sumar uno" className="flex h-10 w-10 items-center justify-center"><Plus size={16} /></button>
+                      <button onClick={() => cambiar(l.key, { qty: l.qty + 1 })} aria-label="Sumar uno" className="flex h-11 w-11 items-center justify-center"><Plus size={16} /></button>
                     </div>
                   </li>
                 ))}
@@ -147,7 +147,7 @@ export default function PedidoForm() {
           </Seccion>
 
           <Seccion titulo="Cliente">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               <Campo label="Nombre" list="clientes" autoComplete="off" value={cliente.cliente_nombre} onChange={(e) => elegirCliente(e.target.value)} placeholder="Nombre y apellido" />
               <datalist id="clientes">{[...clientes.values()].map((x) => <option key={x.cliente_nombre} value={x.cliente_nombre} />)}</datalist>
               <Campo label="Teléfono" type="tel" {...c('cliente_tel')} placeholder="11 2345 6789" />
@@ -159,7 +159,7 @@ export default function PedidoForm() {
           </Seccion>
         </div>
 
-        <aside className="lg:sticky lg:top-8">
+        <aside className="xl:sticky xl:top-8">
           <div className="rounded-xl2 bg-tinta p-4 text-papel">
             <div className="flex justify-between text-[13px] text-[#BDB4A6]"><span>{unidades} decant{unidades === 1 ? '' : 's'}</span><span>Total</span></div>
             <div className="text-right font-serif text-[34px] font-semibold leading-tight">{pesos(total)}</div>

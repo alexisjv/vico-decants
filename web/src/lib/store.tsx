@@ -34,7 +34,7 @@ export function DatosProvider({ children }: { children: ReactNode }) {
 
   const avisar = useCallback((texto: string, tipo: TipoAviso = 'ok') => {
     const id = Date.now() + Math.random();
-    setAvisos((a) => [...a, { id, texto, tipo }]);
+    setAvisos((a) => [...a.slice(-1), { id, texto, tipo }]);
     setTimeout(() => setAvisos((a) => a.filter((x) => x.id !== id)), tipo === 'error' ? 6000 : 3500);
   }, []);
 

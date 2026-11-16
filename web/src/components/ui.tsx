@@ -25,9 +25,9 @@ export function Campo({ label, ayuda, prefijo, sufijo, className = '', ...p }: I
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
       <label htmlFor={id} className="text-[13px] font-medium text-niebla">{label}</label>
-      <div className="flex h-12 items-center rounded-xl border border-borde-2 bg-white px-3 focus-within:border-tinta focus-within:ring-2 focus-within:ring-tinta/10">
+      <div className="flex h-12 items-center rounded-xl border border-[#B9AE9C] bg-white px-3 focus-within:border-tinta focus-within:ring-2 focus-within:ring-tinta/10">
         {prefijo && <span className="mr-1 text-niebla">{prefijo}</span>}
-        <input id={id} {...p} className="min-w-0 flex-1 bg-transparent text-[16px] text-tinta outline-none placeholder:text-niebla/60" />
+        <input id={id} {...p} className="min-w-0 flex-1 bg-transparent text-[16px] text-tinta outline-none placeholder:text-niebla" />
         {sufijo && <span className="ml-1 text-niebla">{sufijo}</span>}
       </div>
       {ayuda && <div className="text-[12px] leading-snug text-niebla">{ayuda}</div>}
@@ -40,7 +40,7 @@ export function Chip({ activo, children, ...p }: ButtonHTMLAttributes<HTMLButton
     <button
       {...p}
       aria-pressed={activo}
-      className={`h-9 shrink-0 whitespace-nowrap rounded-full px-4 text-[13px] font-medium transition-colors ${activo ? 'bg-tinta text-papel' : 'border border-borde-2 bg-papel text-tinta hover:border-tinta'}`}
+      className={`h-11 shrink-0 whitespace-nowrap rounded-full px-4 text-[13px] font-medium transition-colors ${activo ? 'bg-tinta text-papel' : 'border border-borde-2 bg-papel text-tinta hover:border-tinta'}`}
     >
       {children}
     </button>
@@ -96,7 +96,7 @@ export function Hoja({ abierta, onCerrar, titulo, children, pie }: { abierta: bo
 export function Avisos() {
   const { avisos } = useDatos();
   return (
-    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex flex-col items-center gap-2 px-4 lg:bottom-6 lg:items-end lg:pr-6">
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 top-3 z-[60] flex flex-col items-center gap-2 px-4 lg:bottom-6 lg:top-auto lg:items-end lg:pr-6">
       {avisos.map((a) => (
         <div key={a.id} className={`max-w-sm rounded-xl px-4 py-3 text-[14px] font-medium text-papel shadow-suave ${a.tipo === 'error' ? 'bg-mal' : a.tipo === 'info' ? 'bg-tinta-2' : 'bg-ok'}`}>{a.texto}</div>
       ))}

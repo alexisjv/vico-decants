@@ -8,7 +8,7 @@ export default {
         papel: '#FBF9F5',
         borde: { DEFAULT: '#E6DFD2', 2: '#DDD5C7' },
         niebla: '#6E665C',
-        oro: { DEFAULT: '#8C6A3A', claro: '#E9D3AE', vivo: '#B8935A' },
+        oro: { DEFAULT: '#7E5F33', claro: '#E9D3AE', vivo: '#B8935A' },
         ok: { DEFAULT: '#2F6B45', bg: '#E3EEE6', claro: '#9FD3AE' },
         mal: { DEFAULT: '#9A3B32', bg: '#F6E4E1' },
       },
