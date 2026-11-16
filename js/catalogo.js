@@ -11,7 +11,7 @@ function rcat(q=''){
   $('csub').textContent=CAT.length+' perfume'+(CAT.length!==1?'s':'')+(fx.length!==CAT.length?` · ${fx.length} visibles`:'');
   const cc=$('cc');cc.className=vm_==='g'?'cgrid':'clist';
   if(!fx.length){cc.innerHTML=`<div class="cempty">${!CAT.length?'Sin perfumes.':'Sin resultados.'}</div>`;return;}
-  const mob=window.innerWidth<640;
+  const mob=window.innerWidth<900;
   if(vm_==='g'){
     cc.innerHTML=fx.map((p,i)=>`
 <div class="card" style="animation-delay:${Math.min(i*.04,.5)}s">
