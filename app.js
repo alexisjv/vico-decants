@@ -236,6 +236,7 @@ function rfm(editing=false){
   document.getElementById('ce').value=CFG.costo_fijo||0;document.getElementById('tam').value='100';
   EDIT_ORIG=null;
   setRange('mg',60,10,500);setRange('d5',10,0,30);setRange('d10',20,0,40);
+  [...document.getElementById('rto').options].forEach(o=>{if(!['100','500','1000'].includes(o.value))o.remove();});
   document.getElementById('rnd').checked=false;document.getElementById('rto').value='100';
   ['mg','d5','d10'].forEach(id=>usl(document.getElementById(id)));
   document.getElementById('mgV').textContent='60%';document.getElementById('d5V').textContent='−10%';document.getElementById('d10V').textContent='−20%';
@@ -263,7 +264,7 @@ async function save(){
   }catch(e){syncToast(e.message,'err');b.textContent='Error';b.style.background='var(--red)';b.style.opacity='1';setTimeout(()=>{b.style.background='';b.style.pointerEvents='';b.classList.add('ok');b.textContent='Guardar →';},2500);}
 }
 let EDIT_ORIG=null;
-function setRange(id,val,defMin,defMax){const el=document.getElementById(id);el.min=Math.min(defMin,Math.floor(val));el.max=Math.max(defMax,Math.ceil(val));el.step=Number.isInteger(+val)?1:"any";el.value=val;}
+function setRange(id,val,defMin,defMax){const el=document.getElementById(id);el.min=Math.min(defMin,Math.floor(val));el.max=Math.max(defMax,Math.ceil(val));el.step=Number.isInteger(+val)?1:Number.isInteger(+val*10)?0.1:"any";el.value=val;}
 function updPriceWarn(){
   const el=document.getElementById('pwarn');if(!el)return;
   if(!EDIT_ORIG||!lp){el.style.display='none';return;}
@@ -286,7 +287,7 @@ function keepOrigPrices(){
   if(!EDIT_ORIG)return;
   const g=id=>document.getElementById(id);
   const r=fitCost({...EDIT_ORIG,tam:g('tam').value,ce:g('ce').value,margin:g('mg').value,disc5:g('d5').value,disc10:g('d10').value,roundTo:g('rnd').checked?g('rto').value:null});
-  if(!r){toast('No se pudo calcular un costo válido','err');return;}
+  if(!r||!r.exact){toast('No se pueden mantener exactos: los precios del catálogo no respetan el redondeo o se cargaron a mano. Revisalos y guardá los que quieras.','err',6000);return;}
   g('pC').value=r.pc;g('ce').value=r.ce;calc();
   toast(`Costo de compra $${f(r.pc)} y envase $${f(r.ce)} — revisá y guardá`);
 }
