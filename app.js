@@ -396,15 +396,17 @@ function openInflModal(){
   ].map(({l,v})=>`<div class="infl-chip"><div class="infl-chip-lbl">${l}</div><div class="infl-chip-val">${v}</div></div>`).join('');
   document.getElementById('ovInfl').classList.add('on');
 }
-function inflRow(p,mult,oldCf,newCf){
-  const ce=Math.abs((+p.ce||0)-(+oldCf||0))<0.01?newCf:(+p.ce||0);
+function inflCf(mult,oldCf,cfInput){return cfInput==null?Math.round((+oldCf||0)*mult):cfInput;}
+function inflRow(p,mult,oldCf,cfInput){
+  const ce0=+p.ce||0;
+  const ce=cfInput!=null&&Math.abs(ce0-(+oldCf||0))<0.01?cfInput:Math.round(ce0*mult);
   const pc=p.pc?Math.floor(p.pc*mult):0;
   const pl=p.pl?Math.round(p.pl*mult):0;
   let prices;
   if(pc&&priceDiff(p)===false){
     const[a,b,c]=priceCalc({...p,pc,ce}).map(x=>x.v);prices={p25:a,p5:b,p10:c};
   }else{
-    prices={p25:roundPrice(p.p25*mult,p.roundTo),p5:roundPrice(p.p5*mult,p.roundTo),p10:roundPrice(p.p10*mult,p.roundTo)};
+    prices={p25:Math.round(p.p25*mult),p5:Math.round(p.p5*mult),p10:Math.round(p.p10*mult)};
   }
   return{id:p.dbId,body:{...prices,pc,pl,extra_cost:ce}};
 }
@@ -413,13 +415,15 @@ async function applyInflacion(){
   if(_inflBusy)return;
   const pct=parseFloat(document.getElementById('inflVal').value);
   const cfRaw=document.getElementById('cfVal').value;
-  const cf=cfRaw===''?(+CFG.costo_fijo||0):(parseFloat(cfRaw)||0);
+  const cfIn=cfRaw===''?null:(parseFloat(cfRaw)||0);
   if(isNaN(pct)){toast('Ingresá un % válido','err');return;}
   if(pct<=-100||pct>100){toast('El % debe estar entre -99 y 100','err');return;}
   const mult=1+pct/100;
-  const rows=CAT.map(p=>inflRow(p,mult,CFG.costo_fijo,cf));
+  const cfInput=cfIn!=null&&Math.abs(cfIn-(+CFG.costo_fijo||0))>=0.01?cfIn:null;
+  const cf=inflCf(mult,CFG.costo_fijo,cfInput);
+  const rows=CAT.map(p=>inflRow(p,mult,CFG.costo_fijo,cfInput));
   const desf=CAT.filter(p=>priceDiff(p)).length;
-  if(!confirm(`Se van a actualizar los precios de ${CAT.length} perfumes un ${pct}%.`+(desf?`\n\n${desf} perfume(s) tienen el costo de compra desfasado: se les multiplica el precio actual. Podés corregirlos con el botón "⚖ Costos".`:'')+'\n\n¿Continuar?'))return;
+  if(!confirm(`Se van a actualizar los precios de ${CAT.length} perfumes un ${pct}%.`+(desf?`\n\n${desf} perfume(s) tienen el costo de compra desfasado: se les multiplica el precio actual sin redondear. Podés corregirlos con el botón "⚖ Costos".`:'')+'\n\n¿Continuar?'))return;
   _inflBusy=true;cov('ovInfl');
   document.getElementById('pl').classList.add('on');document.getElementById('plMsg').textContent='Actualizando precios…';
   syncToast('Aplicando '+pct+'%…','loading');
