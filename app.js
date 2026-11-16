@@ -415,7 +415,7 @@ async function applyInflacion(){
   if(_inflBusy)return;
   const pct=parseFloat(document.getElementById('inflVal').value);
   const cfRaw=document.getElementById('cfVal').value;
-  const cfIn=cfRaw===''?null:(parseFloat(cfRaw)||0);
+  const cfIn=cfRaw===''?null:Math.max(0,parseFloat(cfRaw)||0);
   if(isNaN(pct)){toast('Ingresá un % válido','err');return;}
   if(pct<=-100||pct>100){toast('El % debe estar entre -99 y 100','err');return;}
   const mult=1+pct/100;
