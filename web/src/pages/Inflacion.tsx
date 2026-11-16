@@ -53,7 +53,7 @@ export default function Inflacion({ abierta, onCerrar }: { abierta: boolean; onC
         )}
         <div className="grid grid-cols-2 gap-3">
           <Campo label="Inflación del mes" inputMode="decimal" sufijo="%" placeholder="2,5" value={pct} onChange={(e) => setPct(e.target.value)} autoFocus />
-          <Campo label="Costo de envase" inputMode="numeric" prefijo="$" value={cf} onChange={(e) => setCf(e.target.value)} ayuda={`Hoy: ${pesos(config.costoFijo)}`} />
+          <Campo label="Costo de envase" type="number" min="0" inputMode="decimal" prefijo="$" value={cf} onChange={(e) => setCf(e.target.value)} ayuda={`Hoy: ${pesos(config.costoFijo)}`} />
         </div>
       </div>
     </Hoja>

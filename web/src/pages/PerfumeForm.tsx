@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ImagePlus, Trash2 } from 'lucide-react';
 import { borrarPerfume, guardarPerfume, siguienteId, subirImagen, type Perfume, type Tipo } from '../lib/api';
@@ -46,10 +46,19 @@ export default function PerfumeForm() {
   const [guardando, setGuardando] = useState(false);
   const [borrar, setBorrar] = useState(false);
 
+  const cargado = useRef('');
   useEffect(() => {
-    if (original) setP(original);
-    else if (!editando) { setP(vacio(config.costoFijo)); siguienteId().then((n) => setP((x) => ({ ...x, id: n }))).catch(() => {}); }
-  }, [original, editando, config.costoFijo]);
+    const clave = id ?? 'nuevo';
+    if (cargado.current === clave) return;
+    if (original) { setP(original); cargado.current = clave; }
+    else if (!editando) {
+      cargado.current = clave;
+      setP(vacio(config.costoFijo));
+      siguienteId()
+        .catch(() => Math.max(0, ...perfumes.map((x) => x.id)) + 1)
+        .then((n) => setP((x) => ({ ...x, id: n })));
+    }
+  }, [id, original, editando, config.costoFijo, perfumes]);
 
   const set = <K extends keyof Perfume>(k: K, v: Perfume[K]) => setP((x) => ({ ...x, [k]: v }));
   const setPc = (v: number) => setP((x) => ({ ...x, pc: v, aj: original && v === original.pc ? original.aj : 1 }));
@@ -126,10 +135,10 @@ export default function PerfumeForm() {
 
           <Seccion titulo="Costos">
             <div className="grid grid-cols-2 gap-3">
-              <Campo label="Precio de compra" inputMode="numeric" prefijo="$" value={p.pc || ''} onChange={(e) => setPc(+e.target.value || 0)} />
-              <Campo label="Tamaño del frasco" inputMode="numeric" sufijo="ml" value={p.tam || ''} onChange={(e) => set('tam', +e.target.value || 0)} />
-              <Campo label="Envase / atomizador" inputMode="numeric" prefijo="$" value={p.ce || ''} onChange={(e) => set('ce', +e.target.value || 0)} />
-              <Campo label="Precio de lista (referencia)" inputMode="numeric" prefijo="$" value={p.pl || ''} onChange={(e) => set('pl', +e.target.value || 0)} />
+              <Campo label="Precio de compra" type="number" min="0" inputMode="decimal" prefijo="$" value={p.pc || ''} onChange={(e) => setPc(+e.target.value || 0)} />
+              <Campo label="Tamaño del frasco" type="number" min="1" inputMode="decimal" sufijo="ml" value={p.tam || ''} onChange={(e) => set('tam', +e.target.value || 0)} />
+              <Campo label="Envase / atomizador" type="number" min="0" inputMode="decimal" prefijo="$" value={p.ce || ''} onChange={(e) => set('ce', +e.target.value || 0)} />
+              <Campo label="Precio de lista (referencia)" type="number" min="0" inputMode="decimal" prefijo="$" value={p.pl || ''} onChange={(e) => set('pl', +e.target.value || 0)} />
             </div>
             {p.aj !== 1 && p.pc > 0 && (
               <p className="mt-3 rounded-xl bg-crema px-3 py-2 text-[13px] leading-snug text-niebla">

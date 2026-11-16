@@ -65,7 +65,7 @@ function aPerfume(r: Row): Perfume {
   return {
     id: num(r.id), tipo: (r.type as Tipo) || '', marca: String(r.brand ?? ''), nombre: String(r.name ?? ''),
     img: String(r.img ?? ''), inspo: String(r.img_insp ?? ''), link: String(r.info ?? ''), stock: r.stock !== false,
-    p25: num(r.p25), p5: num(r.p5), p10: num(r.p10), pl: num(r.pl), pc: num(r.pc), tam: num(r.size, 100),
+    p25: num(r.p25), p5: num(r.p5), p10: num(r.p10), pl: num(r.pl), pc: num(r.pc), tam: num(r.size) || 100,
     ce: num(r.extra_cost), aj: num(r.ajuste, 1), margin: num(r.margin, 60), disc5: num(r.disc5, 10), disc10: num(r.disc10, 20),
     roundTo: r.round_to == null ? null : num(r.round_to),
   };

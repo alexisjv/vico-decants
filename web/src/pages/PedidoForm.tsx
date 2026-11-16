@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Minus, Plus, Search, Trash2, X } from 'lucide-react';
 import { borrarPedido, getItems, guardarPedido, hoy, type Pedido, type Perfume } from '../lib/api';
@@ -23,8 +23,10 @@ export default function PedidoForm() {
   const [guardando, setGuardando] = useState(false);
   const [borrar, setBorrar] = useState(false);
 
+  const cargado = useRef(0);
   useEffect(() => {
-    if (!original) return;
+    if (!original || cargado.current === original.id) return;
+    cargado.current = original.id;
     setCliente({ cliente_nombre: original.cliente_nombre || '', cliente_tel: original.cliente_tel || '', cliente_email: original.cliente_email || '', cliente_dir: original.cliente_dir || '', notas: original.notas || '', fecha: original.fecha || hoy() });
     getItems(original.id).then((its) => setLineas(its.map((i) => ({ key: siguiente++, perfumeId: i.perfume_id, nombre: i.perfume_nombre, ml: +i.ml, qty: i.qty, precio: i.precio_unit, costo: i.costo_unit }))))
       .catch((e) => avisar(e.message, 'error'));

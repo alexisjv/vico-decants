@@ -56,7 +56,8 @@ export function DatosProvider({ children }: { children: ReactNode }) {
     }
   }, [avisar]);
 
-  useEffect(() => { if (session) recargar(); }, [session, recargar]);
+  const usuario = session?.user.id;
+  useEffect(() => { if (usuario) recargar(); }, [usuario, recargar]);
 
   const ventas = useMemo(() => {
     const m = new Map<number, number>();
