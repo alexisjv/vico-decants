@@ -1,3 +1,20 @@
+async function imgParaPdf(src){
+  if(!src)return null;
+  try{
+    const b=await(await fetch(src)).blob();
+    const d=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.onerror=rej;fr.readAsDataURL(b);});
+    if(/^data:image\/(png|jpe?g);/.test(d))return d;
+    const img=new Image();img.src=d;await img.decode();
+    const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+    c.getContext('2d').drawImage(img,0,0);
+    return c.toDataURL('image/png');
+  }catch(e){console.warn('PDF imagen:',src.slice(0,80),e);return null;}
+}
+function pdfImg(doc,d,x,y,w,h){
+  if(!d)return;
+  try{doc.addImage(d,d.startsWith('data:image/png')?'PNG':'JPEG',x,y,w,h,'','FAST');}
+  catch(e){console.warn('PDF imagen no agregada:',e);}
+}
 async function xpdf(_returnBlob=false){
   if(!CAT.length){alert('No hay perfumes.');return;}
   if(!_returnBlob)$('pl').classList.add('on');
@@ -8,8 +25,8 @@ async function xpdf(_returnBlob=false){
     const PW=210,PH=297;
     const now=new Date();
     const ds=now.toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'});
-    const ai=(d,x,y,w,h)=>{if(!d)return;try{doc.addImage(d,d.startsWith('data:image/png')?'PNG':'JPEG',x,y,w,h,'','FAST');}catch{}};
-    const fi=async src=>{if(!src)return null;if(src.startsWith('data:'))return src;try{const r=await fetch(src);const b=await r.blob();return await new Promise(res=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.readAsDataURL(b)});}catch{return null;}};
+    const ai=(d,x,y,w,h)=>pdfImg(doc,d,x,y,w,h);
+    const fi=imgParaPdf;
 
     const M=4;
     const TW=PW-M*2;
@@ -168,18 +185,8 @@ async function xFolleto(keys) {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const PW = 210, PH = 297;
 
-    const fi = async src => {
-      if (!src) return null;
-      if (src.startsWith('data:')) return src;
-      try {
-        const r = await fetch(src); const b = await r.blob();
-        return await new Promise(res => { const fr = new FileReader(); fr.onload = e => res(e.target.result); fr.readAsDataURL(b); });
-      } catch { return null; }
-    };
-    const ai = (d, x, y, w, h) => {
-      if (!d) return;
-      try { doc.addImage(d, d.startsWith('data:image/png') ? 'PNG' : 'JPEG', x, y, w, h, '', 'FAST'); } catch {}
-    };
+    const fi = imgParaPdf;
+    const ai = (d, x, y, w, h) => pdfImg(doc, d, x, y, w, h);
     const tri = (x1, y1, x2, y2, x3, y3) =>
       doc.lines([[x2 - x1, y2 - y1], [x3 - x2, y3 - y2]], x1, y1, [1, 1], 'F', true);
 

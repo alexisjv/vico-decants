@@ -26,28 +26,10 @@ jobs:
       - name: Check JavaScript syntax
         run: for f in js/*.js; do node --check "$f"; done
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Build and test beta
-        continue-on-error: true
-        working-directory: web
-        env:
-          VITE_SB_URL: ${{ secrets.SB_URL }}
-          VITE_SB_KEY: ${{ secrets.SB_KEY }}
-        run: |
-          npm ci
-          npm test
-          npm run build
-
       - name: Assemble site
         run: |
           mkdir -p _site
           cp -r index.html style.css js _site/
-          if [ -d web/dist ]; then cp -r web/dist _site/beta; fi
           cat > _site/config.js << 'EOF'
           const CONFIG = {
             SB_URL: '${{ secrets.SB_URL }}',
