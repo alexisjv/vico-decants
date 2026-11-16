@@ -1,5 +1,5 @@
-let _anchoMob=window.innerWidth<900;
-window.addEventListener('resize',()=>{const m=window.innerWidth<900;if(m!==_anchoMob){_anchoMob=m;if($('vcat').classList.contains('on'))rcat($('catq').value||'');}});
+let _anchoMob=window.innerWidth<=900;
+window.addEventListener('resize',()=>{const m=window.innerWidth<=900;if(m!==_anchoMob){_anchoMob=m;if($('vcat').classList.contains('on'))rcat($('catq').value||'');}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.ov.on').forEach(o=>o.classList.remove('on'));});
 document.querySelectorAll('input[type=range]').forEach(usl);
 initLogos();

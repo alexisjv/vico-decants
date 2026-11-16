@@ -360,9 +360,6 @@ select.ctrl{cursor:pointer;padding-right:22px;background-image:url("data:image/s
   #vpd{flex-direction:column}.pd-main{flex:none}.pd-sidebar{min-height:40vh}
   .pd-inner{grid-template-columns:1fr 1fr}
   .dash-kpis{grid-template-columns:repeat(2,1fr)}.dash-charts{grid-template-columns:1fr}.dash-span2,.dash-span3{grid-column:span 1}
-}
-.tl-s,.bflt{display:none}
-@media(max-width:900px){
   #vcat{padding:9px 11px;gap:8px}
   .toolbar{flex-wrap:wrap;gap:5px}
   .search-group{flex:1 1 100%;order:1;flex-wrap:wrap}
@@ -376,14 +373,14 @@ select.ctrl{cursor:pointer;padding-right:22px;background-image:url("data:image/s
   .save-bar .bsave{flex:2;margin:0}.save-bar .bcancel{flex:1;margin:0}
   #vc{padding-bottom:76px}
 }
+.tl-s,.bflt{display:none}
 @media(max-width:640px){
-  .tab{padding:11px 10px;font-size:.62rem;letter-spacing:.08em}
+  .tab{padding:11px 10px;font-size:.62rem;letter-spacing:.08em;min-height:44px}
   .tl-f{display:none}.tl-s{display:inline}
   .col{padding:14px 12px;gap:12px}
   .pd-inner{grid-template-columns:1fr}
   .pd-items-col{border-right:none;border-bottom:1px solid var(--line)}
   .pd-sidebar{padding:0}
-  .tab{min-height:44px}
   .ctrl,.vtog,.bpdf{height:40px}.vb{min-width:44px}
   input,select,textarea{font-size:16px}
   input[type=range]::-webkit-slider-thumb{width:22px;height:22px}

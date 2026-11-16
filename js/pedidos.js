@@ -56,7 +56,7 @@ function renderOrder(){
 }
 function chSz(oi,si,v){const s=ORDER[oi].sizes[si];s.ml=parseFloat(v);delete s.price;delete s.cost;renderOrder();}
 function chQty(oi,si,v){ORDER[oi].sizes[si].qty=Math.max(1,parseInt(v)||1);updOrd();}
-function addSz(oi){const usados=ORDER[oi].sizes.map(s=>s.ml);ORDER[oi].sizes.push({ml:[2.5,5,10].find(m=>!usados.includes(m))??2.5,qty:1});renderOrder();}
+function addSz(oi){const usados=ORDER[oi].sizes.map(s=>s.ml),ml=[2.5,5,10].find(m=>!usados.includes(m));if(!ml){toast('Ya están los 3 tamaños: subí la cantidad','info');return;}ORDER[oi].sizes.push({ml,qty:1});renderOrder();}
 function rmSz(oi,si){ORDER[oi].sizes.splice(si,1);if(!ORDER[oi].sizes.length)ORDER.splice(oi,1);renderOrder();}
 function rmOi(oi){ORDER.splice(oi,1);renderOrder();}
 function updOrd(){
