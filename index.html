@@ -85,6 +85,7 @@
         <div class="pcard" id="rc10"><div class="ph2"><div><span class="pml">10<small>ML</small></span></div><div class="pprice"><span class="cur">$</span><span id="p10">—</span></div></div><div class="pstats"><div><div class="pst-l">Costo</div><div class="pst-v" id="c10">—</div></div><div><div class="pst-l">Ganancia</div><div class="pst-v pos" id="g10">—</div></div><div><div class="pst-l">$/ml</div><div class="pst-v hl" id="m10">—</div></div></div></div>
       </div>
     </div>
+    <div class="pwarn" id="pwarn" style="display:none"></div>
     <div style="animation:up .4s .14s ease both"><div class="sl">Resumen</div><div id="det"><div class="ei">Ingresá los datos para ver el resumen.</div></div></div>
   </div>
 </div>
@@ -102,6 +103,7 @@
     </div>
     <div class="vtog"><button class="vb on" id="vg" onclick="vm('g')">⊞</button><button class="vb" id="vl" onclick="vm('l')">☰</button></div>
     <button class="bpdf" onclick="openInflModal()" title="Actualizar precios por inflación">%</button>
+    <button class="bpdf" onclick="openCostModal()" title="Revisar perfumes cuyo precio no coincide con el de Editar">⚖ Costos</button>
     <button class="bpdf" onclick="xpdf()">↓ PDF</button>
     <button class="bpdf" id="bDrive" onclick="uploadToDrive()">↑ Drive</button>
     <button class="bpdf" onclick="xFolleto()" title="Generar folleto con los primeros 4 perfumes en stock">◈ Folleto</button>
@@ -239,7 +241,7 @@
   <div class="infl-modal">
     <div class="infl-top">
       <h3>Actualizar precios del catálogo</h3>
-      <p>Los precios de todos los perfumes se multiplicarán por el factor de inflación indicado.</p>
+      <p>Se aumenta el costo de compra de cada perfume y se recalculan sus precios con su margen, descuentos y redondeo. El costo de envase solo cambia en los perfumes que usan el costo fijo general.</p>
       <div class="infl-chips" id="inflChips"></div>
     </div>
     <div class="infl-body">
@@ -250,6 +252,23 @@
       <div class="infl-act">
         <button class="infl-btn-cancel" onclick="cov('ovInfl')">Cancelar</button>
         <button class="infl-btn-apply" onclick="applyInflacion()">Aplicar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Revisión de costos desfasados -->
+<div class="ov" id="ovCost">
+  <div class="infl-modal cost-modal">
+    <div class="infl-top">
+      <h3>Revisar costos</h3>
+      <p>Perfumes cuyo precio en el catálogo no coincide con el que aparece al tocar "Editar".</p>
+    </div>
+    <div class="infl-body">
+      <div id="costBody"></div>
+      <div class="infl-act">
+        <button class="infl-btn-cancel" onclick="cov('ovCost')">Cerrar</button>
+        <button class="infl-btn-apply" id="costApply" onclick="applyCostFix()">Ajustar costo de los marcados</button>
       </div>
     </div>
   </div>
