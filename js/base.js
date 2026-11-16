@@ -204,7 +204,7 @@ function sv(id){
   document.querySelectorAll('.tab')[idx].classList.add('on');
   if(id==='vcat')rcat($('catq').value||'');
   if(id==='vpd'){const d=$('vFecha');if(!d.value)d.value=today();renderPedidos();}
-  if(id==='vdash')renderDashboard();
+  if(id==='vdash'){_dashItems=null;renderDashboard();}
 }
 function vm(m){vm_=m;$('vg').classList.toggle('on',m==='g');$('vl').classList.toggle('on',m==='l');rcat($('catq').value||'');}
 

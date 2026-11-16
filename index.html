@@ -183,52 +183,50 @@
 <!-- ══ DASHBOARD ══ -->
 <div class="view" id="vdash">
   <div class="dash-wrap">
-    <div class="dash-tools"><button class="bpdf" onclick="downloadBackup()" title="Descargar todos los datos en un archivo">⤓ Backup</button></div>
-    <!-- Fila 1: KPI cards -->
+    <div class="dash-tools">
+      <label class="dash-per"><span>Período</span>
+        <select class="ctrl" id="dPeriodo" onchange="renderDashboard()">
+          <option value="mes">Este mes</option><option value="m3">Últimos 3 meses</option><option value="m6">Últimos 6 meses</option><option value="m12">Últimos 12 meses</option><option value="todo" selected>Todo</option>
+        </select>
+      </label>
+      <button class="bpdf" onclick="downloadBackup()" title="Descargar todos los datos en un archivo">⤓ Backup</button>
+    </div>
     <div class="dash-kpis">
-      <div class="dash-kpi">
-        <div class="dkpi-l">Pedidos totales</div>
-        <div class="dkpi-v" id="dKpiPedidos">—</div>
-      </div>
-      <div class="dash-kpi">
-        <div class="dkpi-l">Pendientes</div>
-        <div class="dkpi-v gold" id="dKpiPend">—</div>
-      </div>
-      <div class="dash-kpi">
-        <div class="dkpi-l">Completados</div>
-        <div class="dkpi-v grn" id="dKpiTerm">—</div>
-      </div>
-      <div class="dash-kpi dash-kpi-est" id="dKpiEstado"></div>
+      <div class="dash-kpi"><div class="dkpi-l">Ventas · <span id="dPerLbl">Todo</span></div><div class="dkpi-v" id="dKpiVenta">—</div><div class="dkpi-s" id="dKpiVentaDelta"></div></div>
+      <div class="dash-kpi"><div class="dkpi-l">Ganancia</div><div class="dkpi-v grn" id="dKpiGan">—</div><div class="dkpi-s" id="dKpiMargen"></div></div>
+      <div class="dash-kpi"><div class="dkpi-l">Ticket promedio</div><div class="dkpi-v" id="dKpiTicket">—</div><div class="dkpi-s" id="dKpiTicketSub"></div></div>
+      <div class="dash-kpi"><div class="dkpi-l">Decants vendidos</div><div class="dkpi-v" id="dKpiDecants">—</div><div class="dkpi-s" id="dKpiMl"></div></div>
+      <div class="dash-kpi"><div class="dkpi-l">Pendientes</div><div class="dkpi-v gold" id="dKpiPend">—</div><div class="dkpi-s" id="dKpiPendMonto"></div></div>
+      <div class="dash-kpi"><div class="dkpi-l">Clientes</div><div class="dkpi-v" id="dKpiClientes">—</div><div class="dkpi-s" id="dKpiClientesSub"></div></div>
     </div>
     <div class="dash-charts">
-      <!-- Fila 2: Línea + Ventas/Ganancia -->
       <div class="dash-cbox dash-span2">
         <div class="dash-title">Ventas y ganancias por mes</div>
-        <canvas id="chMensual" height="110"></canvas>
+        <div class="chwrap lg"><canvas id="chMensual"></canvas></div>
       </div>
-      <div class="dash-money-col">
-        <div class="dash-cbox">
-          <div class="dkpi-l">Ventas (pedidos terminados)</div>
-          <div class="dkpi-v" id="dKpiVenta">—</div>
-        </div>
-        <div class="dash-cbox">
-          <div class="dkpi-l">Ganancia (pedidos terminados)</div>
-          <div class="dkpi-v grn" id="dKpiGan">—</div>
-        </div>
+      <div class="dash-cbox">
+        <div class="dash-title">Ventas por tamaño</div>
+        <div class="chwrap sm"><canvas id="chTamanos"></canvas></div>
       </div>
-      <!-- Fila 3: Top perfumes + Tipo -->
       <div class="dash-cbox dash-span2">
         <div class="dash-title">Top 5 perfumes más vendidos</div>
-        <canvas id="chTop" height="160"></canvas>
+        <div class="chwrap md"><canvas id="chTop"></canvas></div>
+      </div>
+      <div class="dash-cbox">
+        <div class="dash-title">Mejores clientes</div>
+        <ol class="dlist" id="dClientes"></ol>
+      </div>
+      <div class="dash-cbox dash-span2">
+        <div class="dash-title">Decants vendidos por perfume y tamaño</div>
+        <div class="chwrap md"><canvas id="chDecants"></canvas></div>
       </div>
       <div class="dash-cbox">
         <div class="dash-title">Catálogo por tipo</div>
-        <canvas id="chTipo"></canvas>
+        <div class="chwrap sm"><canvas id="chTipo"></canvas></div>
       </div>
-      <!-- Fila 4: Decants por perfume y tamaño -->
       <div class="dash-cbox dash-span3">
-        <div class="dash-title">Decants vendidos por perfume y tamaño</div>
-        <canvas id="chDecants" height="80"></canvas>
+        <div class="dash-title">En stock sin ventas en el período · <span id="dSinVentasN">0</span></div>
+        <ul class="dlist dlist-cols" id="dSinVentas"></ul>
       </div>
     </div>
   </div>
