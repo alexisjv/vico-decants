@@ -177,6 +177,7 @@ async function toggleEstado(id,current,ev){
 }
 
 function renderPedidos(){
+  updClientList();
   const filt=$('plEst').value;
   let list=PEDIDOS;if(filt)list=list.filter(p=>p.estado===filt);
   const pending=PEDIDOS.filter(p=>p.estado==='pendiente').length;
@@ -213,3 +214,14 @@ function renderPedidos(){
 }
 
 document.addEventListener('click',e=>{if(!$('pddrop').contains(e.target)&&e.target!==$('pdq'))$('pddrop').classList.remove('on');});
+
+function clientes(){
+  const m=new Map();
+  PEDIDOS.forEach(p=>{const n=(p.cliente_nombre||'').trim();if(n&&!m.has(n.toLowerCase()))m.set(n.toLowerCase(),p);});
+  return m;
+}
+function updClientList(){$('vClientes').innerHTML=[...clientes().values()].map(p=>`<option value="${esc(p.cliente_nombre)}">`).join('');}
+function fillCliente(){
+  const p=clientes().get($('vNom').value.trim().toLowerCase());if(!p)return;
+  [['vTel','cliente_tel'],['vEmail','cliente_email'],['vDir','cliente_dir']].forEach(([id,k])=>{if(!$(id).value&&p[k])$(id).value=p[k];});
+}

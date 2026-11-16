@@ -35,6 +35,7 @@ function rfm(editing=false){
   $('rnd').checked=false;$('rto').value='100';
   ['mg','d5','d10'].forEach(id=>usl($(id)));
   $('mgV').textContent='60%';$('d5V').textContent='−10%';$('d10V').textContent='−20%';
+  $('bcx').style.display='none';
   rst();if(!editing)setNextCode();
 }
 async function save(){
@@ -82,4 +83,6 @@ function ltc(key){
   [{t:'iT',i:'iI',h:'iH',src:p.img},{t:'sT',i:'sI',h:'sH',src:p.inspo}].forEach(({t,i,h,src})=>{const th=$(t);if(src){th.src=src;th.style.display='block';$(i).style.display='none';$(h).textContent='Imagen cargada';}else{th.style.display='none';$(i).style.display='';$(h).textContent='Subir foto';}});
   calc();sv('vc');window.scrollTo({top:0,behavior:'smooth'});
   $('bsv').textContent='Actualizar en catálogo →';
+  $('bcx').style.display='';
 }
+function cancelEditPerf(){rfm();toast('Edición cancelada','info');}

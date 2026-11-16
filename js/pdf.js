@@ -140,9 +140,21 @@ async function xpdf(_returnBlob=false){
   finally{if(!_returnBlob)$('pl').classList.remove('on');}
 }
 
-async function xFolleto() {
+function openFolModal(){
+  const list=CAT.filter(p=>p.stock==='in');
+  const pre=new Set(list.slice(0,4).map(p=>p.key));
+  $('folList').innerHTML=list.map(p=>`<label class="fol-row"><input type="checkbox" value="${p.key}" ${pre.has(p.key)?'checked':''} onchange="updFolCount()"><span>${esc(p.nombre)}</span><small>${esc(p.marca)}</small></label>`).join('')||'<p class="aj-info">No hay perfumes en stock.</p>';
+  updFolCount();$('ovFol').classList.add('on');
+}
+function updFolCount(){
+  const sel=[...document.querySelectorAll('#folList input:checked')];
+  document.querySelectorAll('#folList input').forEach(c=>{c.disabled=!c.checked&&sel.length>=4;});
+  $('folN').textContent=`${sel.length} de 4`;$('folGo').disabled=!sel.length;
+}
+function goFolleto(){const keys=[...document.querySelectorAll('#folList input:checked')].map(c=>c.value);cov('ovFol');xFolleto(keys);}
+async function xFolleto(keys) {
   if (!CAT.length) { alert('No hay perfumes en el catálogo.'); return; }
-  let items = CAT.filter(p => p.stock === 'in').slice(0, 4);
+  let items = keys ? keys.map(k => CAT.find(p => p.key === k)).filter(Boolean).slice(0, 4) : CAT.filter(p => p.stock === 'in').slice(0, 4);
   if (!items.length) items = CAT.slice(0, 4);
   $('pl').classList.add('on');
   $('plMsg').textContent = 'Generando folleto…';

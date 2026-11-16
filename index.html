@@ -23,10 +23,10 @@
 </div>
 
 <nav class="tabs" style="display:none" id="nav">
-  <button class="tab on" onclick="sv('vc')">Carga de perfume</button>
+  <button class="tab on" onclick="sv('vc')"><span class="tl-f">Carga de perfume</span><span class="tl-s">Carga</span></button>
   <button class="tab"    onclick="sv('vcat')">Catálogo&thinsp;<span class="badge" id="cn"></span></button>
   <button class="tab"    onclick="sv('vpd')">Pedidos&thinsp;<span class="badge" id="pbn" style="display:none"></span></button>
-  <button class="tab"    onclick="sv('vdash')">Dashboard</button>
+  <button class="tab"    onclick="sv('vdash')"><span class="tl-f">Dashboard</span><span class="tl-s">Panel</span></button>
   <button class="tab tab-out" onclick="doLogout()" title="Cerrar sesión">Salir</button>
 </nav>
 <div class="toast" id="toast"></div>
@@ -52,7 +52,7 @@
         <input type="hidden" id="fStk" value="in"><input type="hidden" id="fDbId" value="">
       </div>
     </div>
-    <div style="margin-top:auto;padding-top:12px;animation:up .4s .3s ease both"><button class="bsave" id="bsv" onclick="save()">Guardar en catálogo</button></div>
+    <div style="margin-top:auto;padding-top:12px;animation:up .4s .3s ease both"><button class="bsave" id="bsv" onclick="save()">Guardar en catálogo</button><button class="bcancel" id="bcx" style="display:none" onclick="cancelEditPerf()">Cancelar edición</button></div>
   </div>
   <div class="col col2">
     <div style="animation:up .4s .1s ease both">
@@ -102,11 +102,12 @@
       <select class="ctrl" id="fs" onchange="rcat(document.getElementById('catq').value)"><option value="">Stock</option><option value="in">En stock</option><option value="out">Sin stock</option></select>
       <select class="ctrl" id="fo" onchange="rcat(document.getElementById('catq').value)"><option value="">Orden</option><option value="name">A→Z</option><option value="price-asc">Precio ↑</option><option value="price-desc">Precio ↓</option><option value="sales">+ Vendidos</option></select>
     </div>
+    <button class="bpdf bflt" id="bflt" onclick="toggleFilters()">Filtros</button>
     <div class="vtog"><button class="vb on" id="vg" onclick="vm('g')">⊞</button><button class="vb" id="vl" onclick="vm('l')">☰</button></div>
     <button class="bpdf" onclick="openInflModal()" title="Actualizar precios por inflación">%</button>
     <button class="bpdf" onclick="xpdf()">↓ PDF</button>
     <button class="bpdf" id="bDrive" onclick="uploadToDrive()">↑ Drive</button>
-    <button class="bpdf" onclick="xFolleto()" title="Generar folleto con los primeros 4 perfumes en stock">◈ Folleto</button>
+    <button class="bpdf" onclick="openFolModal()" title="Elegir hasta 4 perfumes para el folleto">◈ Folleto</button>
   </div>
   <div id="cc" class="cgrid"><div class="cempty">Cargando…</div></div>
 </div>
@@ -141,7 +142,7 @@
         <div class="pd-section">
           <div class="sl">Cliente</div>
           <div class="r2">
-            <div class="f"><label>Nombre</label><input type="text" id="vNom" placeholder="María García" oninput="updOrd()"></div>
+            <div class="f"><label>Nombre</label><input type="text" id="vNom" placeholder="María García" list="vClientes" autocomplete="off" oninput="updOrd()" onchange="fillCliente()"><datalist id="vClientes"></datalist></div>
             <div class="f"><label>Teléfono</label><input type="tel" id="vTel" placeholder="+54 9 11…" oninput="updOrd()"></div>
             <div class="f"><label>Email</label><input type="email" id="vEmail" placeholder="maria@email.com" oninput="updOrd()"></div>
             <div class="f"><label>Dirección</label><input type="text" id="vDir" placeholder="Av. Corrientes 1234" oninput="updOrd()"></div>
@@ -253,6 +254,22 @@
       <div class="infl-act">
         <button class="infl-btn-cancel" onclick="cov('ovInfl')">Cancelar</button>
         <button class="infl-btn-apply" onclick="applyInflacion()">Aplicar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovFol">
+  <div class="infl-modal">
+    <div class="infl-top">
+      <h3>Folleto</h3>
+      <p>Elegí hasta 4 perfumes en stock. <span id="folN"></span></p>
+    </div>
+    <div class="infl-body">
+      <div class="fol-list" id="folList"></div>
+      <div class="infl-act">
+        <button class="infl-btn-cancel" onclick="cov('ovFol')">Cancelar</button>
+        <button class="infl-btn-apply" id="folGo" onclick="goFolleto()">Generar folleto</button>
       </div>
     </div>
   </div>

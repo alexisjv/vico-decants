@@ -2,6 +2,7 @@ function ubadge(){const n=CAT.length,e=$('cn');e.textContent=n||'';e.style.displ
 function umf(){const sel=$('fm'),cur=sel.value;const ms=[...new Set(CAT.map(p=>p.marca||'').filter(Boolean))].sort();sel.innerHTML='<option value="">Todas las marcas</option>'+ms.map(m=>`<option value="${esc(m)}"${m===cur?' selected':''}>${esc(m)}</option>`).join('');}
 function sortFx(arr,ord){const a=[...arr];if(ord==='name')return a.sort((x,y)=>(x.nombre||'').localeCompare(y.nombre||'','es'));if(ord==='price-asc')return a.sort((x,y)=>x.p25-y.p25);if(ord==='price-desc')return a.sort((x,y)=>y.p25-x.p25);if(ord==='sales')return a.sort((x,y)=>(y.sales||0)-(x.sales||0));return a;}
 function rcat(q=''){
+  updFilterBadge();
   const sf=$('fs').value,mf=$('fm').value,tf=$('ft').value,ord=$('fo').value,ql=q.toLowerCase();
   let fx=CAT;
   if(sf)fx=fx.filter(p=>p.stock===sf);if(mf)fx=fx.filter(p=>(p.marca||'')===mf);if(tf)fx=fx.filter(p=>(p.tipo||'')===tf);
@@ -19,7 +20,7 @@ function rcat(q=''){
     ${p.inspo?`<div class="ipip"><img src="${esc(p.inspo)}"></div>`:''}
   </div>
   <div class="cbody">
-    <div class="cd-row1"><span class="cd-name">${esc(p.nombre)}</span><div class="cd-dot ${p.stock}"></div></div>
+    <div class="cd-row1"><span class="cd-name">${esc(p.nombre)}</span><button class="stk ${p.stock}" onclick="toggleStock('${p.key}')" title="Tocá para cambiar">${p.stock==='in'?'En stock':'Sin stock'}</button></div>
     <div class="cd-row2">${p.tipo?`<span class="ctipo">${esc(p.tipo)}</span>`:''}${p.marca?`<span class="cbrand">${esc(p.marca)}</span>`:''}</div>
     <div class="cprices">
       <div class="cp"><div class="cp-l">2.5ml</div><div class="cp-v">$${f(p.p25)}</div></div>
@@ -36,7 +37,7 @@ function rcat(q=''){
     ${p.img?`<img class="${p.stock==='out'?'out-th':''}" src="${esc(p.img)}" style="width:58px;height:58px;object-fit:contain;padding:4px">`:`<div style="opacity:.15;font-size:1.1rem">◈</div>`}
   </div>
   <div class="mob-content">
-    <div class="mob-r1"><span class="mob-name">${esc(p.nombre)}</span><span class="mob-cod2">#${String(p.dbId||'').padStart(5,'0')}</span><div class="mob-dot ${p.stock}"></div></div>
+    <div class="mob-r1"><span class="mob-name">${esc(p.nombre)}</span><span class="mob-cod2">#${String(p.dbId||'').padStart(5,'0')}</span><button class="stk ${p.stock}" onclick="toggleStock('${p.key}')" title="Tocá para cambiar">${p.stock==='in'?'En stock':'Sin stock'}</button></div>
     <div class="mob-r2">${p.tipo?`<span class="ctipo">${esc(p.tipo)}</span>`:''}${p.marca?`<span class="cbrand">${esc(p.marca)}</span>`:''}</div>
     <div class="mob-r3">
       <div class="mob-prices-row">
@@ -56,7 +57,7 @@ function rcat(q=''){
   <div class="lc"><span class="lr-sm">#${String(p.dbId||'').padStart(5,'0')}</span></div>
   <div class="lc">${p.tipo?`<span class="ctipo" style="font-size:.53rem">${esc(p.tipo)}</span>`:''}</div>
   <div class="lc"><span class="lr-sm">${esc(p.marca||'—')}</span></div>
-  <div class="lc"><div class="cd-dot ${p.stock}" style="margin:auto"></div></div>
+  <div class="lc"><button class="stk ${p.stock}" onclick="toggleStock('${p.key}')" title="Tocá para cambiar">${p.stock==='in'?'En stock':'Sin stock'}</button></div>
   <div class="lc"><span class="lr-p">$${f(p.p25)}</span></div>
   <div class="lc"><span class="lr-p">$${f(p.p5)}</span></div>
   <div class="lc"><span class="lr-p">$${f(p.p10)}</span></div>
@@ -136,4 +137,18 @@ async function applyInflacion(){
     }else syncToast('Precios actualizados — '+CAT.length+' perfumes','ok');
   }catch(e){syncToast(e.message,'err');}
   finally{_inflBusy=false;$('pl').classList.remove('on');$('plMsg').textContent='Generando PDF…';}
+}
+
+async function toggleStock(key){
+  const p=CAT.find(x=>x.key===key);if(!p)return;
+  const nuevo=p.stock==='in'?'out':'in';
+  try{
+    await sbOk(await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${p.dbId}`,{method:'PATCH',headers:SB_HDR,body:JSON.stringify({stock:nuevo==='in'})}));
+    p.stock=nuevo;rcat($('catq').value||'');toast(`${p.nombre}: ${nuevo==='in'?'en stock':'sin stock'}`);
+  }catch(e){syncToast(e.message,'err');}
+}
+function toggleFilters(){$('vcat').querySelector('.toolbar').classList.toggle('show-f');}
+function updFilterBadge(){
+  const n=['fm','ft','fs','fo'].filter(id=>$(id).value).length;
+  $('bflt').textContent=n?`Filtros (${n})`:'Filtros';
 }
