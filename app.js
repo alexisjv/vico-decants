@@ -10,7 +10,7 @@ async function sbUploadImage(file,codigo='',slot=''){
   const STO_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
   const up=await fetch(`${SB_URL}/storage/v1/object/Imagenes/${path}`,{method:'POST',headers:{...STO_HDR,'Content-Type':file.type||'image/png','x-upsert':'true'},body:file});
   if(!up.ok)throw new Error('Upload error: '+(await up.text()));
-  return `${STO_PUB}/${path}`;
+  return `${STO_PUB}/${path}?v=${Date.now()}`;
 }
 function initLogos(){
   const pub=name=>`${STO_PUB}/${name}`;
@@ -36,7 +36,8 @@ async function loadConfig(){
 }
 async function saveConfigVal(desc,val){
   const now=new Date().toISOString();
-  await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.${encodeURIComponent(desc)}`,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify({valor:String(val),fecha_modificacion:now})});
+  const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.${encodeURIComponent(desc)}`,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify({valor:String(val),fecha_modificacion:now})});
+  if(!r.ok)console.warn('Config '+desc+' no guardada:',r.status,await r.text());
   return now;
 }
 async function saveDriveId(fileId){
@@ -55,6 +56,7 @@ async function saveDriveId(fileId){
 
 // LOGIN
 async function doLogin(){
+  await Promise.race([CFG_READY,new Promise(r=>setTimeout(r,4000))]);
   const v=document.getElementById('lpwd').value;
   const e=document.getElementById('lerr');
   if(v===CONFIG.PASSWORD){
@@ -103,21 +105,23 @@ async function sbSavePedido(data){
   }
   return pid;
 }
+async function sbOk(r){if(!r.ok)throw new Error(await r.text());return r;}
 async function sbUpdatePedido(id,pedido,items){
-  await fetch(`${SB_URL}/rest/v1/Pedidos?id=eq.${id}`,{method:'PATCH',headers:SB_HDR,body:JSON.stringify(pedido)});
-  await fetch(`${SB_URL}/rest/v1/PedidosItems?pedido_id=eq.${id}`,{method:'DELETE',headers:SB_HDR});
-  if(items.length)await fetch(`${SB_URL}/rest/v1/PedidosItems`,{method:'POST',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify(items.map(i=>({...i,pedido_id:id})))});
+  const old=await(await sbOk(await fetch(`${SB_URL}/rest/v1/PedidosItems?pedido_id=eq.${id}&select=id`,{headers:SB_HDR}))).json();
+  if(items.length)await sbOk(await fetch(`${SB_URL}/rest/v1/PedidosItems`,{method:'POST',headers:{...SB_HDR,'Prefer':'return=minimal'},body:JSON.stringify(items.map(i=>({...i,pedido_id:id})))}));
+  if(old.length)await sbOk(await fetch(`${SB_URL}/rest/v1/PedidosItems?id=in.(${old.map(x=>x.id).join(',')})`,{method:'DELETE',headers:SB_HDR}));
+  await sbOk(await fetch(`${SB_URL}/rest/v1/Pedidos?id=eq.${id}`,{method:'PATCH',headers:SB_HDR,body:JSON.stringify(pedido)}));
 }
 async function sbDeletePedido(id){
-  await fetch(`${SB_URL}/rest/v1/PedidosItems?pedido_id=eq.${id}`,{method:'DELETE',headers:SB_HDR});
-  await fetch(`${SB_URL}/rest/v1/Pedidos?id=eq.${id}`,{method:'DELETE',headers:SB_HDR});
+  await sbOk(await fetch(`${SB_URL}/rest/v1/PedidosItems?pedido_id=eq.${id}`,{method:'DELETE',headers:SB_HDR}));
+  await sbOk(await fetch(`${SB_URL}/rest/v1/Pedidos?id=eq.${id}`,{method:'DELETE',headers:SB_HDR}));
 }
 async function sbGetPedidos(){
   const r=await fetch(`${SB_URL}/rest/v1/Pedidos?select=*&order=id.desc`,{headers:SB_HDR});
   if(!r.ok)throw new Error(await r.text());return await r.json();
 }
 async function sbUpdateEstado(id,estado){
-  await fetch(`${SB_URL}/rest/v1/Pedidos?id=eq.${id}`,{method:'PATCH',headers:SB_HDR,body:JSON.stringify({estado})});
+  await sbOk(await fetch(`${SB_URL}/rest/v1/Pedidos?id=eq.${id}`,{method:'PATCH',headers:SB_HDR,body:JSON.stringify({estado})}));
 }
 async function sbGetPedidoItems(id){
   const r=await fetch(`${SB_URL}/rest/v1/PedidosItems?pedido_id=eq.${id}&select=*`,{headers:SB_HDR});
@@ -143,8 +147,19 @@ function syncToast(msg,type){if(type==='loading')toast('⟳  '+msg,'info',60000)
 
 async function loadDB(){
   syncToast('Cargando catálogo…','loading');
-  try{CAT=await sbGet();syncToast(CAT.length+' perfumes cargados','ok');ubadge();umf();document.getElementById('ce').value=CFG.costo_fijo||0;setNextCode();}
+  try{CAT=await sbGet();await loadSales();syncToast(CAT.length+' perfumes cargados','ok');ubadge();umf();document.getElementById('ce').value=CFG.costo_fijo||0;setNextCode();}
   catch(e){syncToast(e.message,'err');CAT=[];}
+}
+async function loadSales(){
+  try{
+    const agg={};
+    for(let off=0;;off+=1000){
+      const r=await fetch(`${SB_URL}/rest/v1/PedidosItems?select=perfume_id,qty&order=id.asc&limit=1000&offset=${off}`,{headers:SB_HDR});if(!r.ok)return;
+      const rows=await r.json();rows.forEach(it=>{agg[it.perfume_id]=(agg[it.perfume_id]||0)+(it.qty||1);});
+      if(rows.length<1000)break;
+    }
+    CAT.forEach(p=>p.sales=agg[p.dbId]||0);
+  }catch(e){console.warn('Ventas:',e);}
 }
 async function loadPedidos(){
   try{PEDIDOS=await sbGetPedidos();renderPedidos();}catch(e){console.warn(e);}
@@ -158,7 +173,7 @@ function sv(id){
   const idx={vc:0,vcat:1,vpd:2,vdash:3}[id]||0;
   document.querySelectorAll('.tab')[idx].classList.add('on');
   if(id==='vcat')rcat(document.getElementById('catq').value||'');
-  if(id==='vpd'){const d=document.getElementById('vFecha');if(!d.value)d.value=new Date().toISOString().slice(0,10);renderPedidos();}
+  if(id==='vpd'){const d=document.getElementById('vFecha');if(!d.value)d.value=today();renderPedidos();}
   if(id==='vdash')renderDashboard();
 }
 function vm(m){vm_=m;document.getElementById('vg').classList.toggle('on',m==='g');document.getElementById('vl').classList.toggle('on',m==='l');rcat(document.getElementById('catq').value||'');}
@@ -166,7 +181,23 @@ function vm(m){vm_=m;document.getElementById('vg').classList.toggle('on',m==='g'
 // HELPERS
 const f=n=>Math.round(n).toLocaleString('es-AR');
 const fd=n=>n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:1});
-function rp(v){if(!document.getElementById('rnd').checked)return v;const t=+document.getElementById('rto').value;return Math.ceil(v/t)*t;}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today=()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+function roundPrice(v,roundTo){const t=+roundTo;return t>0?Math.ceil(v/t)*t:Math.round(v);}
+function priceCalc({pc,tam,ce,margin,disc5,disc10,roundTo}){
+  const cml=(+pc||0)/((+tam)||100),mg=+margin||0,extra=+ce||0;
+  return[{ml:2.5,id:'25',d:0},{ml:5,id:'5',d:+disc5||0},{ml:10,id:'10',d:+disc10||0}].map(({ml,id,d})=>{
+    const ct=cml*ml+extra,v=roundPrice((ct*(1+mg/100)/ml)*(1-d/100)*ml,roundTo);
+    return{ml,id,d,ct,v,gan:v-ct,pml:v/ml};
+  });
+}
+function priceDiff(p){
+  if(!p.pc)return null;
+  const[a,b,c]=priceCalc(p).map(x=>x.v);
+  const tol=2;
+  const ok=Math.abs(a-p.p25)<=tol&&Math.abs(b-p.p5)<=tol&&Math.abs(c-p.p10)<=tol;
+  return ok?false:{p25:a,p5:b,p10:c};
+}
 function usl(el){el.style.setProperty('--p',((+el.value-+el.min)/(+el.max-+el.min)*100)+'%');}
 function onF(slot,inp){const file=inp.files[0];if(!file)return;const m=slot==='m';const th=document.getElementById(m?'iT':'sT');th.src=URL.createObjectURL(file);th.style.display='block';document.getElementById(m?'iI':'sI').style.display='none';document.getElementById(m?'iH':'sH').textContent=file.name.slice(0,16);pf[slot]=file;}
 function stk(v){document.getElementById('fStk').value=v;document.getElementById('pI').className='pill'+(v==='in'?' in':'');document.getElementById('pO').className='pill'+(v==='out'?' out':'');}
@@ -175,13 +206,15 @@ document.querySelectorAll('.ov').forEach(ov=>ov.addEventListener('click',e=>{if(
 
 // CALC
 function calc(){
-  const pl=+document.getElementById('pL').value||0,tam=+document.getElementById('tam').value||100,pc=+document.getElementById('pC').value||0,ce=+document.getElementById('ce').value||0,mg=+document.getElementById('mg').value||60,d5=+document.getElementById('d5').value||0,d10=+document.getElementById('d10').value||0;
+  const pl=+document.getElementById('pL').value||0,tam=+document.getElementById('tam').value||100,pc=+document.getElementById('pC').value||0,ce=+document.getElementById('ce').value||0,mg=+document.getElementById('mg').value,d5=+document.getElementById('d5').value||0,d10=+document.getElementById('d10').value||0;
   ['mg','d5','d10'].forEach(id=>usl(document.getElementById(id)));
   document.getElementById('mgV').textContent=mg+'%';document.getElementById('d5V').textContent=d5?'−'+d5+'%':'0%';document.getElementById('d10V').textContent=d10?'−'+d10+'%':'0%';
   if(!pc){rst();return;}
   const cml=pc/tam;
-  const dat=[{ml:2.5,id:'25',d:0},{ml:5,id:'5',d:d5},{ml:10,id:'10',d:d10}].map(({ml,id,d})=>{const ct=cml*ml+ce,v=rp((ct*(1+mg/100)/ml)*(1-d/100)*ml);return{ml,id,d,ct,v,gan:v-ct,pml:v/ml};});
+  const roundTo=document.getElementById('rnd').checked?document.getElementById('rto').value:null;
+  const dat=priceCalc({pc,tam,ce,margin:mg,disc5:d5,disc10:d10,roundTo});
   lp={p25:dat[0].v,p5:dat[1].v,p10:dat[2].v};
+  updPriceWarn();
   dat.forEach((x,i)=>{const card=document.getElementById('rc'+x.id);card.classList.add('on');card.classList.toggle('best',i===2);document.getElementById('p'+x.id).textContent=f(x.v);document.getElementById('c'+x.id).textContent='$'+f(x.ct);document.getElementById('g'+x.id).textContent='$'+f(x.gan);document.getElementById('m'+x.id).textContent='$'+fd(x.pml)+'/ml';});
   let h=`<table class="rt"><thead><tr><th>Concepto</th><th>2.5ml</th><th>5ml</th><th>10ml</th></tr></thead><tbody>`;
   h+=`<tr><td>Costo total</td>${dat.map(x=>`<td>$${f(x.ct)}</td>`).join('')}</tr>`;
@@ -191,8 +224,8 @@ function calc(){
   document.getElementById('det').innerHTML=h;
   const b=document.getElementById('bsv');b.classList.add('ok');b.textContent='Guardar en catálogo →';
 }
-function rst(){lp=null;['25','5','10'].forEach(id=>{['p','c','g','m'].forEach(p=>{const el=document.getElementById(p+id);if(el)el.textContent='—';});document.getElementById('rc'+id).classList.remove('on','best');});document.getElementById('det').innerHTML='<div class="ei">Ingresá los datos para ver el resumen.</div>';document.getElementById('bsv').classList.remove('ok');document.getElementById('bsv').textContent='Guardar en catálogo';}
-function rfm(){
+function rst(){lp=null;updPriceWarn();['25','5','10'].forEach(id=>{['p','c','g','m'].forEach(p=>{const el=document.getElementById(p+id);if(el)el.textContent='—';});document.getElementById('rc'+id).classList.remove('on','best');});document.getElementById('det').innerHTML='<div class="ei">Ingresá los datos para ver el resumen.</div>';document.getElementById('bsv').classList.remove('ok');document.getElementById('bsv').textContent='Guardar en catálogo';}
+function rfm(editing=false){
   ['fMarca','fNom','fLink'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fDbId').value='';document.getElementById('fTipo').value='';stk('in');ib.m='';ib.i='';pf.m=null;pf.i=null;
   ['iT','sT'].forEach(id=>{const e=document.getElementById(id);e.style.display='none';e.src='';});
@@ -201,11 +234,12 @@ function rfm(){
   document.getElementById('fIF').value='';document.getElementById('fIS').value='';
   ['pL','pC'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ce').value=CFG.costo_fijo||0;document.getElementById('tam').value='100';
-  document.getElementById('mg').value='60';document.getElementById('d5').value='10';document.getElementById('d10').value='20';
-  document.getElementById('rnd').checked=false;
+  EDIT_ORIG=null;
+  setRange('mg',60,10,500);setRange('d5',10,0,30);setRange('d10',20,0,40);
+  document.getElementById('rnd').checked=false;document.getElementById('rto').value='100';
   ['mg','d5','d10'].forEach(id=>usl(document.getElementById(id)));
   document.getElementById('mgV').textContent='60%';document.getElementById('d5V').textContent='−10%';document.getElementById('d10V').textContent='−20%';
-  rst();setNextCode();
+  rst();if(!editing)setNextCode();
 }
 async function save(){
   if(!lp)return;
@@ -214,7 +248,7 @@ async function save(){
   const rawDbId=document.getElementById('fDbId').value;
   const rawCod=document.getElementById('fCod').value;
   const resolvedId=rawDbId?parseInt(rawDbId):(rawCod?parseInt(rawCod):null);
-  const p={dbId:resolvedId,tipo:document.getElementById('fTipo').value,marca:document.getElementById('fMarca').value.trim(),nombre:n,img:ib.m,inspo:ib.i,link:document.getElementById('fLink').value.trim(),stock:document.getElementById('fStk').value,p25:lp.p25,p5:lp.p5,p10:lp.p10,pl:+document.getElementById('pL').value||0,pc:+document.getElementById('pC').value||0,tam:+document.getElementById('tam').value||100,ce:+document.getElementById('ce').value||0,margin:+document.getElementById('mg').value||60,disc5:+document.getElementById('d5').value||0,disc10:+document.getElementById('d10').value||0,roundTo:document.getElementById('rnd').checked?document.getElementById('rto').value:null};
+  const p={dbId:resolvedId,tipo:document.getElementById('fTipo').value,marca:document.getElementById('fMarca').value.trim(),nombre:n,img:ib.m,inspo:ib.i,link:document.getElementById('fLink').value.trim(),stock:document.getElementById('fStk').value,p25:lp.p25,p5:lp.p5,p10:lp.p10,pl:+document.getElementById('pL').value||0,pc:+document.getElementById('pC').value||0,tam:+document.getElementById('tam').value||100,ce:+document.getElementById('ce').value||0,margin:+document.getElementById('mg').value,disc5:+document.getElementById('d5').value||0,disc10:+document.getElementById('d10').value||0,roundTo:document.getElementById('rnd').checked?document.getElementById('rto').value:null};
   const b=document.getElementById('bsv');b.textContent='Guardando…';b.style.opacity='.5';b.style.pointerEvents='none';
   syncToast('Guardando…','loading');
   try{
@@ -222,21 +256,51 @@ async function save(){
     if(pf.m){p.img=await sbUploadImage(pf.m,cod,'m');ib.m=p.img;}
     if(pf.i){p.inspo=await sbUploadImage(pf.i,cod,'i');ib.i=p.inspo;}
     const saved=await sbUpsert(p);p.dbId=saved.id;p.key=String(saved.id);
-    const idx=CAT.findIndex(x=>x.dbId===p.dbId);if(idx>=0)CAT[idx]=p;else CAT.push(p);
+    const idx=CAT.findIndex(x=>x.dbId===p.dbId);if(idx>=0){p.sales=CAT[idx].sales||0;CAT[idx]=p;}else{p.sales=0;CAT.push(p);}
     ubadge();umf();syncToast(idx>=0?'Actualizado':'Guardado','ok');
     b.textContent='✓ Guardado';b.style.background='var(--grn)';b.style.opacity='1';
     setTimeout(()=>{b.style.background='';b.style.pointerEvents='';rfm();},1300);
   }catch(e){syncToast(e.message,'err');b.textContent='Error';b.style.background='var(--red)';b.style.opacity='1';setTimeout(()=>{b.style.background='';b.style.pointerEvents='';b.classList.add('ok');b.textContent='Guardar →';},2500);}
 }
+let EDIT_ORIG=null;
+function setRange(id,val,defMin,defMax){const el=document.getElementById(id);el.min=Math.min(defMin,Math.floor(val));el.max=Math.max(defMax,Math.ceil(val));el.step=Number.isInteger(+val)?1:"any";el.value=val;}
+function updPriceWarn(){
+  const el=document.getElementById('pwarn');if(!el)return;
+  if(!EDIT_ORIG||!lp){el.style.display='none';return;}
+  const tol=2;
+  const same=['p25','p5','p10'].every(k=>Math.abs(lp[k]-EDIT_ORIG[k])<=tol);
+  if(same){el.style.display='none';return;}
+  el.innerHTML=`<strong>Atención:</strong> en el catálogo este perfume figura a <strong>$${f(EDIT_ORIG.p25)} · $${f(EDIT_ORIG.p5)} · $${f(EDIT_ORIG.p10)}</strong>, pero con estos datos el cálculo da otros precios. Si guardás, se reemplazan por los de arriba.<br><button type="button" class="pwarn-btn" onclick="keepOrigPrices()">Ajustar costo y envase para mantener los precios del catálogo</button>`;
+  el.style.display='block';
+}
+function fitCost(p){
+  const mg=1+(+p.margin||0)/100,tam=(+p.tam)||100,tol=2;
+  const check=(pc,ce)=>{const sim=priceCalc({...p,pc,ce}).map(x=>x.v);return{pc,ce,sim,exact:Math.abs(sim[0]-p.p25)<=tol&&Math.abs(sim[1]-p.p5)<=tol&&Math.abs(sim[2]-p.p10)<=tol};};
+  const a25=p.p25/mg,a10=p.p10/(mg*(1-(+p.disc10||0)/100)),slope=(a10-a25)/7.5;
+  const pc2=Math.floor(slope*tam),ce2=Math.round(a25-2.5*slope);
+  if(pc2>0&&ce2>=0){const r=check(pc2,ce2);if(r.exact)return r;}
+  const pc1=Math.floor((p.p25/mg-(+p.ce||0))*tam/2.5);
+  return pc1>0?check(pc1,+p.ce||0):null;
+}
+function keepOrigPrices(){
+  if(!EDIT_ORIG)return;
+  const g=id=>document.getElementById(id);
+  const r=fitCost({...EDIT_ORIG,tam:g('tam').value,ce:g('ce').value,margin:g('mg').value,disc5:g('d5').value,disc10:g('d10').value,roundTo:g('rnd').checked?g('rto').value:null});
+  if(!r){toast('No se pudo calcular un costo válido','err');return;}
+  g('pC').value=r.pc;g('ce').value=r.ce;calc();
+  toast(`Costo de compra $${f(r.pc)} y envase $${f(r.ce)} — revisá y guardá`);
+}
 function ltc(key){
   const p=CAT.find(x=>x.key===key);if(!p)return;
+  rfm(true);
+  EDIT_ORIG={p25:p.p25,p5:p.p5,p10:p.p10};
   document.getElementById('fDbId').value=p.dbId||'';document.getElementById('fCod').value=String(p.dbId||'').padStart(5,'0');
   document.getElementById('fMarca').value=p.marca||'';document.getElementById('fNom').value=p.nombre||'';
   document.getElementById('fTipo').value=p.tipo||'';document.getElementById('fLink').value=p.link||'';stk(p.stock||'in');
-  if(p.pl)document.getElementById('pL').value=p.pl;if(p.pc)document.getElementById('pC').value=p.pc;
+  document.getElementById('pL').value=p.pl||'';document.getElementById('pC').value=p.pc||'';
   document.getElementById('tam').value=p.tam||100;document.getElementById('ce').value=p.ce!=null?p.ce:0;
-  document.getElementById('mg').value=p.margin||60;document.getElementById('d5').value=p.disc5!=null?p.disc5:10;document.getElementById('d10').value=p.disc10!=null?p.disc10:20;
-  if(p.roundTo!=null){document.getElementById('rnd').checked=true;document.getElementById('rto').value=p.roundTo;}else document.getElementById('rnd').checked=false;
+  setRange('mg',p.margin!=null?p.margin:60,10,500);setRange('d5',p.disc5!=null?p.disc5:10,0,30);setRange('d10',p.disc10!=null?p.disc10:20,0,40);
+  if(p.roundTo!=null){const sel=document.getElementById('rto');if(![...sel.options].some(o=>o.value===String(p.roundTo)))sel.add(new Option('al '+p.roundTo,p.roundTo));document.getElementById('rnd').checked=true;sel.value=p.roundTo;}else{document.getElementById('rnd').checked=false;document.getElementById('rto').value='100';}
   ['mg','d5','d10'].forEach(id=>usl(document.getElementById(id)));
   ib.m=p.img||'';ib.i=p.inspo||'';
   [{t:'iT',i:'iI',h:'iH',src:p.img},{t:'sT',i:'sI',h:'sH',src:p.inspo}].forEach(({t,i,h,src})=>{const th=document.getElementById(t);if(src){th.src=src;th.style.display='block';document.getElementById(i).style.display='none';document.getElementById(h).textContent='Imagen cargada';}else{th.style.display='none';document.getElementById(i).style.display='';document.getElementById(h).textContent='Subir foto';}});
@@ -246,7 +310,7 @@ function ltc(key){
 
 // CATALOG
 function ubadge(){const n=CAT.length,e=document.getElementById('cn');e.textContent=n||'';e.style.display=n?'inline-flex':'none';}
-function umf(){const sel=document.getElementById('fm'),cur=sel.value;const ms=[...new Set(CAT.map(p=>p.marca||'').filter(Boolean))].sort();sel.innerHTML='<option value="">Todas las marcas</option>'+ms.map(m=>`<option value="${m}"${m===cur?' selected':''}>${m}</option>`).join('');}
+function umf(){const sel=document.getElementById('fm'),cur=sel.value;const ms=[...new Set(CAT.map(p=>p.marca||'').filter(Boolean))].sort();sel.innerHTML='<option value="">Todas las marcas</option>'+ms.map(m=>`<option value="${esc(m)}"${m===cur?' selected':''}>${esc(m)}</option>`).join('');}
 function sortFx(arr,ord){const a=[...arr];if(ord==='name')return a.sort((x,y)=>(x.nombre||'').localeCompare(y.nombre||'','es'));if(ord==='price-asc')return a.sort((x,y)=>x.p25-y.p25);if(ord==='price-desc')return a.sort((x,y)=>y.p25-x.p25);if(ord==='sales')return a.sort((x,y)=>(y.sales||0)-(x.sales||0));return a;}
 function rcat(q=''){
   const sf=document.getElementById('fs').value,mf=document.getElementById('fm').value,tf=document.getElementById('ft').value,ord=document.getElementById('fo').value,ql=q.toLowerCase();
@@ -262,57 +326,57 @@ function rcat(q=''){
     cc.innerHTML=fx.map((p,i)=>`
 <div class="card" style="animation-delay:${Math.min(i*.04,.5)}s">
   <div class="cimg${p.stock==='out'?' out-img':''}">
-    ${p.img?`<img class="mi" src="${p.img}">`:''}<div class="ph"${p.img?' style="display:none"':''}>◈</div>
-    ${p.inspo?`<div class="ipip"><img src="${p.inspo}"></div>`:''}
+    ${p.img?`<img class="mi" src="${esc(p.img)}">`:''}<div class="ph"${p.img?' style="display:none"':''}>◈</div>
+    ${p.inspo?`<div class="ipip"><img src="${esc(p.inspo)}"></div>`:''}
   </div>
   <div class="cbody">
-    <div class="cd-row1"><span class="cd-name">${p.nombre}</span><div class="cd-dot ${p.stock}"></div></div>
-    <div class="cd-row2">${p.tipo?`<span class="ctipo">${p.tipo}</span>`:''}${p.marca?`<span class="cbrand">${p.marca}</span>`:''}</div>
+    <div class="cd-row1"><span class="cd-name">${esc(p.nombre)}</span><div class="cd-dot ${p.stock}"></div></div>
+    <div class="cd-row2">${p.tipo?`<span class="ctipo">${esc(p.tipo)}</span>`:''}${p.marca?`<span class="cbrand">${esc(p.marca)}</span>`:''}</div>
     <div class="cprices">
       <div class="cp"><div class="cp-l">2.5ml</div><div class="cp-v">$${f(p.p25)}</div></div>
       <div class="cp"><div class="cp-l">5ml</div><div class="cp-v">$${f(p.p5)}</div></div>
       <div class="cp"><div class="cp-l">10ml</div><div class="cp-v">$${f(p.p10)}</div></div>
     </div>
   </div>
-  <div class="cacts"><button class="ba" onclick="ltc('${p.key}')">Editar</button><button class="ba del" onclick="cdel('${p.key}','${p.nombre.replace(/'/g,"\\'")}')">Eliminar</button></div>
+  <div class="cacts"><button class="ba" onclick="ltc('${p.key}')">Editar</button><button class="ba del" onclick="cdel('${p.key}')">Eliminar</button></div>
 </div>`).join('');
   } else if(mob){
     cc.innerHTML=fx.map((p,i)=>`
 <div class="mob-card" style="animation-delay:${Math.min(i*.025,.35)}s">
   <div class="mob-thumb-wrap">
-    ${p.img?`<img class="${p.stock==='out'?'out-th':''}" src="${p.img}" style="width:58px;height:58px;object-fit:contain;padding:4px">`:`<div style="opacity:.15;font-size:1.1rem">◈</div>`}
+    ${p.img?`<img class="${p.stock==='out'?'out-th':''}" src="${esc(p.img)}" style="width:58px;height:58px;object-fit:contain;padding:4px">`:`<div style="opacity:.15;font-size:1.1rem">◈</div>`}
   </div>
   <div class="mob-content">
-    <div class="mob-r1"><span class="mob-name">${p.nombre}</span><span class="mob-cod2">#${String(p.dbId||'').padStart(5,'0')}</span><div class="mob-dot ${p.stock}"></div></div>
-    <div class="mob-r2">${p.tipo?`<span class="ctipo">${p.tipo}</span>`:''}${p.marca?`<span class="cbrand">${p.marca}</span>`:''}</div>
+    <div class="mob-r1"><span class="mob-name">${esc(p.nombre)}</span><span class="mob-cod2">#${String(p.dbId||'').padStart(5,'0')}</span><div class="mob-dot ${p.stock}"></div></div>
+    <div class="mob-r2">${p.tipo?`<span class="ctipo">${esc(p.tipo)}</span>`:''}${p.marca?`<span class="cbrand">${esc(p.marca)}</span>`:''}</div>
     <div class="mob-r3">
       <div class="mob-prices-row">
         <div class="mob-pr"><span class="mob-prl">2.5ml</span><span class="mob-prv">$${f(p.p25)}</span></div>
         <div class="mob-pr"><span class="mob-prl">5ml</span><span class="mob-prv">$${f(p.p5)}</span></div>
         <div class="mob-pr"><span class="mob-prl">10ml</span><span class="mob-prv">$${f(p.p10)}</span></div>
       </div>
-      <div class="mob-acts-row"><button class="mob-bi" onclick="ltc('${p.key}')">✎</button><button class="mob-bi del" onclick="cdel('${p.key}','${p.nombre.replace(/'/g,"\\'")}')">✕</button></div>
+      <div class="mob-acts-row"><button class="mob-bi" onclick="ltc('${p.key}')">✎</button><button class="mob-bi del" onclick="cdel('${p.key}')">✕</button></div>
     </div>
   </div>
 </div>`).join('');
   } else {
     cc.innerHTML=`<div class="lh"><div class="lc"></div><div class="lc">Nombre</div><div class="lc">Cód.</div><div class="lc">Tipo</div><div class="lc">Marca</div><div class="lc"></div><div class="lc" style="text-align:right">2.5ml</div><div class="lc" style="text-align:right">5ml</div><div class="lc" style="text-align:right">10ml</div><div class="lc" style="text-align:center">Acciones</div></div>`+fx.map((p,i)=>`
 <div class="lr" style="animation-delay:${Math.min(i*.025,.35)}s">
-  <div class="lc">${p.img?`<img class="lr-th${p.stock==='out'?' out-th':''}" src="${p.img}">`:`<div class="lr-ph">◈</div>`}</div>
-  <div class="lc"><div class="lr-n">${p.nombre}</div></div>
+  <div class="lc">${p.img?`<img class="lr-th${p.stock==='out'?' out-th':''}" src="${esc(p.img)}">`:`<div class="lr-ph">◈</div>`}</div>
+  <div class="lc"><div class="lr-n">${esc(p.nombre)}</div></div>
   <div class="lc"><span class="lr-sm">#${String(p.dbId||'').padStart(5,'0')}</span></div>
-  <div class="lc">${p.tipo?`<span class="ctipo" style="font-size:.53rem">${p.tipo}</span>`:''}</div>
-  <div class="lc"><span class="lr-sm">${p.marca||'—'}</span></div>
+  <div class="lc">${p.tipo?`<span class="ctipo" style="font-size:.53rem">${esc(p.tipo)}</span>`:''}</div>
+  <div class="lc"><span class="lr-sm">${esc(p.marca||'—')}</span></div>
   <div class="lc"><div class="cd-dot ${p.stock}" style="margin:auto"></div></div>
   <div class="lc"><span class="lr-p">$${f(p.p25)}</span></div>
   <div class="lc"><span class="lr-p">$${f(p.p5)}</span></div>
   <div class="lc"><span class="lr-p">$${f(p.p10)}</span></div>
-  <div class="lc"><div class="lr-acts"><button class="bi" onclick="ltc('${p.key}')">✎ Editar</button><button class="bi del" onclick="cdel('${p.key}','${p.nombre.replace(/'/g,"\\'")}')">✕</button></div></div>
+  <div class="lc"><div class="lr-acts"><button class="bi" onclick="ltc('${p.key}')">✎ Editar</button><button class="bi del" onclick="cdel('${p.key}')">✕</button></div></div>
 </div>`).join('');
   }
 }
 let _dk=null;
-function cdel(k,n){_dk=k;document.getElementById('dm').textContent=`¿Eliminar "${n}"?`;document.getElementById('ovD').classList.add('on');}
+function cdel(k){const n=(CAT.find(x=>x.key===k)||{}).nombre||'';_dk=k;document.getElementById('dm').textContent=`¿Eliminar "${n}"?`;document.getElementById('ovD').classList.add('on');}
 document.getElementById('bdk').onclick=async()=>{
   if(!_dk)return;syncToast('Eliminando…','loading');
   try{const p=CAT.find(x=>x.key===_dk);await sbDeletePerf(p?p.dbId:_dk);CAT=CAT.filter(x=>x.key!==_dk);_dk=null;ubadge();umf();cov('ovD');rcat(document.getElementById('catq').value||'');syncToast('Eliminado','ok');}
@@ -331,30 +395,95 @@ function openInflModal(){
   ].map(({l,v})=>`<div class="infl-chip"><div class="infl-chip-lbl">${l}</div><div class="infl-chip-val">${v}</div></div>`).join('');
   document.getElementById('ovInfl').classList.add('on');
 }
+function inflRow(p,mult,oldCf,newCf){
+  const ce=Math.abs((+p.ce||0)-(+oldCf||0))<0.01?newCf:(+p.ce||0);
+  const pc=p.pc?Math.floor(p.pc*mult):0;
+  const pl=p.pl?Math.round(p.pl*mult):0;
+  let prices;
+  if(pc&&priceDiff(p)===false){
+    const[a,b,c]=priceCalc({...p,pc,ce}).map(x=>x.v);prices={p25:a,p5:b,p10:c};
+  }else{
+    prices={p25:roundPrice(p.p25*mult,p.roundTo),p5:roundPrice(p.p5*mult,p.roundTo),p10:roundPrice(p.p10*mult,p.roundTo)};
+  }
+  return{id:p.dbId,body:{...prices,pc,pl,extra_cost:ce}};
+}
+let _inflBusy=false;
 async function applyInflacion(){
+  if(_inflBusy)return;
   const pct=parseFloat(document.getElementById('inflVal').value);
-  const cf=parseFloat(document.getElementById('cfVal').value)||0;
+  const cfRaw=document.getElementById('cfVal').value;
+  const cf=cfRaw===''?(+CFG.costo_fijo||0):(parseFloat(cfRaw)||0);
   if(isNaN(pct)){toast('Ingresá un % válido','err');return;}
-  cov('ovInfl');
-  document.getElementById('pl').classList.add('on');document.getElementById('plMsg').textContent='Actualizando precios…';
+  if(pct<=-100||pct>100){toast('El % debe estar entre -99 y 100','err');return;}
   const mult=1+pct/100;
+  const rows=CAT.map(p=>inflRow(p,mult,CFG.costo_fijo,cf));
+  const desf=CAT.filter(p=>priceDiff(p)).length;
+  if(!confirm(`Se van a actualizar los precios de ${CAT.length} perfumes un ${pct}%.`+(desf?`\n\n${desf} perfume(s) tienen el costo de compra desfasado: se les multiplica el precio actual. Podés corregirlos con el botón "⚖ Costos".`:'')+'\n\n¿Continuar?'))return;
+  _inflBusy=true;cov('ovInfl');
+  document.getElementById('pl').classList.add('on');document.getElementById('plMsg').textContent='Actualizando precios…';
   syncToast('Aplicando '+pct+'%…','loading');
+  const fails=[];
   try{
-    for(const p of CAT){
-      await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${p.dbId}`,{method:'PATCH',headers:SB_HDR,body:JSON.stringify({p25:Math.round(p.p25*mult),p5:Math.round(p.p5*mult),p10:Math.round(p.p10*mult),extra_cost:cf})});
+    for(let i=0;i<rows.length;i++){
+      const{id,body}=rows[i];
+      document.getElementById('plMsg').textContent=`Actualizando precios… ${i+1}/${rows.length}`;
+      try{
+        const r=await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${id}`,{method:'PATCH',headers:SB_HDR,body:JSON.stringify(body)});
+        if(!r.ok)throw new Error(await r.text());
+      }catch(e){fails.push(CAT[i].nombre+' ('+e.message+')');}
     }
     const now1=await saveConfigVal('inflacion',pct);const now2=await saveConfigVal('costo_fijo',cf);
     CFG.inflacion=pct;CFG.infl_fecha=now1;CFG.costo_fijo=cf;CFG.cf_fecha=now2;
-    CAT=await sbGet();ubadge();umf();rcat(document.getElementById('catq').value||'');
+    CAT=await sbGet();await loadSales();ubadge();umf();rcat(document.getElementById('catq').value||'');
     document.getElementById('ce').value=cf;
-    syncToast('Precios actualizados — '+CAT.length+' perfumes','ok');
+    if(fails.length){
+      syncToast(`${fails.length} perfume(s) no se actualizaron`,'err');
+      alert('Estos perfumes NO se actualizaron (no vuelvas a aplicar la inflación a todos; editá estos a mano):\n\n'+fails.join('\n'));
+    }else syncToast('Precios actualizados — '+CAT.length+' perfumes','ok');
   }catch(e){syncToast(e.message,'err');}
-  finally{document.getElementById('pl').classList.remove('on');document.getElementById('plMsg').textContent='Generando PDF…';}
+  finally{_inflBusy=false;document.getElementById('pl').classList.remove('on');document.getElementById('plMsg').textContent='Generando PDF…';}
+}
+
+function openCostModal(){
+  const list=CAT.map(p=>{const d=priceDiff(p);if(!d)return null;return{p,d,fit:fitCost(p)};}).filter(Boolean);
+  const body=document.getElementById('costBody');
+  if(!list.length){body.innerHTML='<p class="cost-ok">Todo coincide: los precios del catálogo son los mismos que muestra "Editar".</p>';document.getElementById('costApply').style.display='none';}
+  else{
+    document.getElementById('costApply').style.display='';
+    body.innerHTML=`<p class="cost-help">Estos ${list.length} perfumes muestran un precio en el catálogo y otro al editarlos. Se puede ajustar su <strong>costo de compra y envase</strong> para que coincidan (la inflación anterior los subía junto con el precio). <strong>Los precios del catálogo no cambian.</strong></p>
+<div class="cost-tbl">${list.map(({p,d,fit},i)=>{
+  const ok=!!fit;const sim=ok?fit.sim:null;
+  return`<label class="cost-row${ok?'':' dis'}"><input type="checkbox" data-i="${i}" ${ok?(fit.exact?'checked':''):'disabled'}>
+  <span class="cost-n">${esc(p.nombre)}<small>${esc(p.marca)}</small></span>
+  <span class="cost-v"><small>Catálogo</small>$${f(p.p25)} · $${f(p.p5)} · $${f(p.p10)}</span>
+  <span class="cost-v"><small>Editar hoy</small>$${f(d.p25)} · $${f(d.p5)} · $${f(d.p10)}</span>
+  <span class="cost-v"><small>Costo / envase</small>${ok?`$${f(p.pc)} → <strong>$${f(fit.pc)}</strong> / $${f(p.ce)} → <strong>$${f(fit.ce)}</strong>`:'no se puede calcular'}</span>
+  ${ok?`<span class="cost-v"><small>Editar después${fit.exact?'':' (aprox.)'}</small>$${f(sim[0])} · $${f(sim[1])} · $${f(sim[2])}</span>`:''}
+</label>`;}).join('')}</div>`;
+  }
+  _costList=list;
+  document.getElementById('ovCost').classList.add('on');
+}
+let _costList=[];
+async function applyCostFix(){
+  const sel=[...document.querySelectorAll('#costBody input[type=checkbox]:checked')].map(c=>_costList[+c.dataset.i]).filter(Boolean);
+  if(!sel.length){toast('No hay perfumes seleccionados','err');return;}
+  if(!confirm(`Se va a actualizar SOLO el costo de compra y envase de ${sel.length} perfume(s). Los precios del catálogo no cambian. ¿Continuar?`))return;
+  cov('ovCost');syncToast('Ajustando costos…','loading');
+  const fails=[];
+  for(const{p,fit}of sel){
+    try{const r=await fetch(`${SB_URL}/rest/v1/${TABLE}?id=eq.${p.dbId}`,{method:'PATCH',headers:SB_HDR,body:JSON.stringify({pc:fit.pc,extra_cost:fit.ce})});if(!r.ok)throw new Error(await r.text());}
+    catch(e){fails.push(p.nombre);}
+  }
+  try{CAT=await sbGet();await loadSales();rcat(document.getElementById('catq').value||'');}catch{}
+  if(fails.length)syncToast('No se ajustaron: '+fails.join(', '),'err');else syncToast(`Costo ajustado en ${sel.length} perfume(s)`,'ok');
 }
 
 // PEDIDO helpers
 function priceFor(p,ml){if(ml===2.5)return p.p25||0;if(ml===5)return p.p5||0;if(ml===10)return p.p10||0;return 0;}
 function costFor(p,ml){if(!p.pc||!p.tam)return 0;return(p.pc/p.tam)*ml+(p.ce||0);}
+const szPrice=(o,s)=>s.price!=null?s.price:priceFor(o.perf,s.ml);
+const szCost=(o,s)=>s.cost!=null?s.cost:costFor(o.perf,s.ml);
 
 function pdSearch(q){
   const drop=document.getElementById('pddrop');
@@ -362,8 +491,8 @@ function pdSearch(q){
   const res=CAT.filter(p=>p.stock==='in'&&(p.nombre+p.marca).toLowerCase().includes(q.toLowerCase())).slice(0,8);
   if(!res.length){drop.innerHTML='<div class="pdopt" style="cursor:default;opacity:.45;font-size:.74rem">Sin resultados en stock</div>';drop.classList.add('on');return;}
   drop.innerHTML=res.map(p=>`<div class="pdopt" onclick="pdAdd('${p.key}')">
-    ${p.img?`<img class="pdopt-img" src="${p.img}">`:`<div class="pdopt-noph">◈</div>`}
-    <div class="pdopt-info"><div class="pdopt-name">${p.nombre}</div><div class="pdopt-sub">${[p.marca,p.tipo].filter(Boolean).join(' · ')}</div></div>
+    ${p.img?`<img class="pdopt-img" src="${esc(p.img)}">`:`<div class="pdopt-noph">◈</div>`}
+    <div class="pdopt-info"><div class="pdopt-name">${esc(p.nombre)}</div><div class="pdopt-sub">${esc([p.marca,p.tipo].filter(Boolean).join(' · '))}</div></div>
     <div class="pdopt-price">$${f(p.p25)}</div>
   </div>`).join('');
   drop.classList.add('on');
@@ -381,12 +510,12 @@ function renderOrder(){
   el.innerHTML=ORDER.map((o,oi)=>`
 <div class="oi">
   <div class="oi-img">
-    ${o.perf.img?`<img src="${o.perf.img}">`:`<div class="oi-noph">◈</div>`}
+    ${o.perf.img?`<img src="${esc(o.perf.img)}">`:`<div class="oi-noph">◈</div>`}
   </div>
   <div class="oi-body">
     <div class="oi-top">
-      <span class="oi-name">${o.perf.nombre}</span>
-      <span class="oi-brand">${o.perf.marca||''}</span>
+      <span class="oi-name">${esc(o.perf.nombre)}</span>
+      <span class="oi-brand">${esc(o.perf.marca||'')}</span>
     </div>
     <div class="oi-rows">
       ${o.sizes.map((s,si)=>`<div class="oi-sz-row">
@@ -397,7 +526,7 @@ function renderOrder(){
         </select>
         <span style="font-size:.68rem;color:var(--fog)">×</span>
         <input type="number" class="oi-sz-qty" min="1" value="${s.qty}" onchange="chQty(${oi},${si},this.value)">
-        <span class="oi-sz-price">$${f(priceFor(o.perf,s.ml)*s.qty)}</span>
+        <span class="oi-sz-price">$${f(szPrice(o,s)*s.qty)}</span>
         <button class="oi-sz-rm" onclick="rmSz(${oi},${si})">✕</button>
       </div>`).join('')}
       <button class="oi-add-sz" onclick="addSz(${oi})">＋ tamaño</button>
@@ -407,31 +536,29 @@ function renderOrder(){
 </div>`).join('');
   updOrd();
 }
-function chSz(oi,si,v){ORDER[oi].sizes[si].ml=parseFloat(v);renderOrder();}
+function chSz(oi,si,v){const s=ORDER[oi].sizes[si];s.ml=parseFloat(v);delete s.price;delete s.cost;renderOrder();}
 function chQty(oi,si,v){ORDER[oi].sizes[si].qty=Math.max(1,parseInt(v)||1);updOrd();}
 function addSz(oi){ORDER[oi].sizes.push({ml:2.5,qty:1});renderOrder();}
 function rmSz(oi,si){ORDER[oi].sizes.splice(si,1);if(!ORDER[oi].sizes.length)ORDER.splice(oi,1);renderOrder();}
 function rmOi(oi){ORDER.splice(oi,1);renderOrder();}
 function updOrd(){
   let tCost=0,tSale=0;
-  ORDER.forEach(o=>o.sizes.forEach(s=>{tCost+=costFor(o.perf,s.ml)*s.qty;tSale+=priceFor(o.perf,s.ml)*s.qty;}));
+  ORDER.forEach(o=>o.sizes.forEach(s=>{tCost+=szCost(o,s)*s.qty;tSale+=szPrice(o,s)*s.qty;}));
   const units=ORDER.reduce((a,o)=>a+o.sizes.reduce((b,s)=>b+s.qty,0),0);
   const el=document.getElementById('psum');
   if(!ORDER.length){el.innerHTML='<div class="sum-empty">Agregá perfumes para ver el resumen.</div>';}
   else{
-    let rows='';ORDER.forEach(o=>o.sizes.forEach(s=>{rows+=`<div class="sum-row"><span>${o.perf.nombre} · ${s.ml}ml × ${s.qty}</span><span>$${f(priceFor(o.perf,s.ml)*s.qty)}</span></div>`;}));
+    let rows='';ORDER.forEach(o=>o.sizes.forEach(s=>{rows+=`<div class="sum-row"><span>${esc(o.perf.nombre)} · ${s.ml}ml × ${s.qty}</span><span>$${f(szPrice(o,s)*s.qty)}</span></div>`;}));
     const gan=tSale-tCost;
     el.innerHTML=rows+`<div class="sum-row tot"><span>${units} decant${units!==1?'s':''}</span><span>$${f(tSale)}</span></div><div class="sum-row gan"><span>Ganancia estimada</span><span>$${f(gan)} (${tCost>0?(gan/tCost*100).toFixed(0):0}%)</span></div>`;
   }
-  const pbn=document.getElementById('pbn');
-  if(units>0){pbn.textContent=units;pbn.style.display='inline-flex';}else pbn.style.display='none';
   document.getElementById('bordSv').classList.toggle('ok',ORDER.length>0);
 }
 
 function resetPedidoForm(){
   ORDER=[];renderOrder();
   ['vNom','vTel','vEmail','vDir','vNota'].forEach(x=>document.getElementById(x).value='');
-  document.getElementById('vFecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('vFecha').value=today();
   editingPedidoId=null;
   const btn=document.getElementById('bordSv');btn.textContent='Guardar pedido';btn.style.background='';btn.style.color='';
   document.getElementById('bordCancel').style.display='none';
@@ -442,9 +569,10 @@ function cancelEdit(){resetPedidoForm();}
 async function savePedido(){
   if(!ORDER.length)return;
   let tCost=0,tSale=0;
-  ORDER.forEach(o=>o.sizes.forEach(s=>{tCost+=costFor(o.perf,s.ml)*s.qty;tSale+=priceFor(o.perf,s.ml)*s.qty;}));
-  const pedData={fecha:document.getElementById('vFecha').value||new Date().toISOString().slice(0,10),cliente_nombre:document.getElementById('vNom').value.trim(),cliente_tel:document.getElementById('vTel').value.trim(),cliente_email:document.getElementById('vEmail').value.trim(),cliente_dir:document.getElementById('vDir').value.trim(),notas:document.getElementById('vNota').value.trim(),total_costo:Math.round(tCost),total_venta:Math.round(tSale),estado:'pendiente'};
-  const items=[];ORDER.forEach(o=>o.sizes.forEach(s=>{items.push({perfume_id:o.perf.dbId,perfume_nombre:o.perf.nombre,ml:s.ml,qty:s.qty,precio_unit:priceFor(o.perf,s.ml),costo_unit:Math.round(costFor(o.perf,s.ml))});}));
+  ORDER.forEach(o=>o.sizes.forEach(s=>{tCost+=szCost(o,s)*s.qty;tSale+=szPrice(o,s)*s.qty;}));
+  const pedData={fecha:document.getElementById('vFecha').value||today(),cliente_nombre:document.getElementById('vNom').value.trim(),cliente_tel:document.getElementById('vTel').value.trim(),cliente_email:document.getElementById('vEmail').value.trim(),cliente_dir:document.getElementById('vDir').value.trim(),notas:document.getElementById('vNota').value.trim(),total_costo:Math.round(tCost),total_venta:Math.round(tSale)};
+  if(!editingPedidoId)pedData.estado='pendiente';
+  const items=[];ORDER.forEach(o=>o.sizes.forEach(s=>{items.push({perfume_id:o.perf.dbId,perfume_nombre:o.perf.nombre,ml:s.ml,qty:s.qty,precio_unit:szPrice(o,s),costo_unit:Math.round(szCost(o,s))});}));
   const btn=document.getElementById('bordSv');btn.textContent='Guardando…';btn.classList.remove('ok');
   syncToast('Guardando pedido…','loading');
   try{
@@ -473,7 +601,7 @@ async function startEditPedido(ped,ev){
   document.getElementById('vEmail').value=ped.cliente_email||'';
   document.getElementById('vDir').value=ped.cliente_dir||'';
   document.getElementById('vNota').value=ped.notas||'';
-  document.getElementById('vFecha').value=ped.fecha||new Date().toISOString().slice(0,10);
+  document.getElementById('vFecha').value=ped.fecha||today();
   ORDER=[];
   syncToast('Cargando items…','loading');
   try{
@@ -481,8 +609,9 @@ async function startEditPedido(ped,ev){
     for(const it of items){
       const p=CAT.find(x=>x.dbId===it.perfume_id)||{key:String(it.perfume_id),dbId:it.perfume_id,nombre:it.perfume_nombre||'?',marca:'',img:'',p25:it.ml===2.5?it.precio_unit:0,p5:it.ml===5?it.precio_unit:0,p10:it.ml===10?it.precio_unit:0,pc:0,tam:100,ce:0};
       const ex=ORDER.find(o=>o.perf.dbId===it.perfume_id);
-      if(ex)ex.sizes.push({ml:it.ml,qty:it.qty});
-      else ORDER.push({perf:p,sizes:[{ml:it.ml,qty:it.qty}]});
+      const sz={ml:+it.ml,qty:it.qty,price:it.precio_unit,cost:it.costo_unit};
+      if(ex)ex.sizes.push(sz);
+      else ORDER.push({perf:p,sizes:[sz]});
     }
     syncToast('Editando #'+String(ped.id).padStart(5,'0'),'info',3500);
   }catch(e){syncToast('Error al cargar items','err');}
@@ -527,17 +656,17 @@ function renderPedidos(){
     const gan=(p.total_venta||0)-(p.total_costo||0);
     const fecha=p.fecha?new Date(p.fecha+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'}):'';
     const isEditing=editingPedidoId===p.id;
-    const pedJSON=JSON.stringify(p).replace(/"/g,'&quot;');
+    const pedJSON=esc(JSON.stringify(p));
     const est=p.estado||'pendiente';
     const estIcon=est==='terminado'?'✓ Listo':'◌ Pendiente';
     return`<div class="ped-card${isEditing?' editing':''}">
   <div class="ped-head">
     <span class="ped-id">#${String(p.id).padStart(5,'0')}</span>
-    <span class="ped-client">${p.cliente_nombre||'Sin nombre'}</span>
+    <span class="ped-client">${esc(p.cliente_nombre||'Sin nombre')}</span>
     <button class="est-pill ${est}" onclick="toggleEstado(${p.id},'${est}',event)">${estIcon}</button>
   </div>
-  ${(p.cliente_tel||fecha)?`<div class="ped-meta">${[p.cliente_tel,fecha].filter(Boolean).join(' · ')}</div>`:''}
-  ${p.notas?`<div class="ped-nota">${p.notas}</div>`:''}
+  ${(p.cliente_tel||fecha)?`<div class="ped-meta">${esc([p.cliente_tel,fecha].filter(Boolean).join(' · '))}</div>`:''}
+  ${p.notas?`<div class="ped-nota">${esc(p.notas)}</div>`:''}
   <div class="ped-foot">
     <div class="ped-pricing">
       <span class="ped-total">$${f(p.total_venta||0)}</span>
@@ -708,7 +837,7 @@ async function xpdf(_returnBlob=false){
     }
     foot(pg);
     if(_returnBlob)return doc.output('blob');
-    doc.save('vico-catalogo-'+now.toISOString().slice(0,10)+'.pdf');
+    doc.save('vico-catalogo-'+today()+'.pdf');
   }catch(err){console.error(err);alert('Error: '+err.message);}
   finally{if(!_returnBlob)document.getElementById('pl').classList.remove('on');}
 }
@@ -1079,7 +1208,7 @@ async function xFolleto() {
     doc.setTextColor(110, 104, 96);
     doc.text('Decants a medida  ·  Precios al ' + ds, PW / 2, FY + 16, { align: 'center' });
 
-    doc.save('vico-folleto-' + now.toISOString().slice(0, 10) + '.pdf');
+    doc.save('vico-folleto-' + today() + '.pdf');
   } catch (err) {
     console.error(err); alert('Error generando folleto: ' + err.message);
   } finally {
@@ -1090,5 +1219,5 @@ async function xFolleto() {
 
 // INIT
 document.querySelectorAll('input[type=range]').forEach(usl);
-loadConfig();
+const CFG_READY=loadConfig();
 initLogos();
