@@ -15,14 +15,26 @@ function setSession(s){
 async function authToken(grant,body){
   const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=${grant}`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify(body)});
   const j=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(j.error_description||j.msg||j.message||('Auth '+r.status));
+  if(!r.ok){const err=new Error(j.error_description||j.msg||j.message||('Auth '+r.status));err.auth=r.status>=400&&r.status<500;throw err;}
   return j;
 }
 async function refreshSession(){
   if(!SESSION)return false;
   try{setSession(await authToken('refresh_token',{refresh_token:SESSION.refresh_token}));return true;}
-  catch(e){console.warn('Auth:',e);setSession(null);showLogin('La sesión expiró. Ingresá de nuevo.');return false;}
+  catch(e){
+    console.warn('Auth:',e);
+    if(!e.auth){clearTimeout(_rt);_rt=setTimeout(refreshSession,30000);return true;}
+    setSession(null);showLogin('La sesión expiró. Ingresá de nuevo.');return false;
+  }
 }
+window.addEventListener('storage',e=>{
+  if(e.key!=='vico_session')return;
+  let s=null;try{s=JSON.parse(e.newValue||'null');}catch{}
+  clearTimeout(_rt);SESSION=s;
+  if(!s){SB_HDR.Authorization='Bearer '+SB_KEY;showLogin();return;}
+  SB_HDR.Authorization='Bearer '+s.access_token;
+  _rt=setTimeout(refreshSession,Math.max(5000,(s.expires_at-120)*1000-Date.now()+Math.random()*20000));
+});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&SESSION&&SESSION.expires_at-120<Date.now()/1000)refreshSession();});
 
 // STORAGE
@@ -72,6 +84,10 @@ async function saveConfigVal(desc,val){
   const now=new Date().toISOString();
   const r=await fetch(`${SB_URL}/rest/v1/Configuracion?descripcion=eq.${encodeURIComponent(desc)}`,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify({valor:String(val),fecha_modificacion:now})});
   if(!r.ok)console.warn('Config '+desc+' no guardada:',r.status,await r.text());
+  else if(!(await r.json()).length){
+    const ri=await fetch(`${SB_URL}/rest/v1/Configuracion`,{method:'POST',headers:SB_HDR,body:JSON.stringify({descripcion:desc,valor:String(val),fecha_modificacion:now})});
+    if(!ri.ok)console.warn('Config '+desc+' no creada:',ri.status,await ri.text());
+  }
   return now;
 }
 async function saveDriveId(fileId){
@@ -278,6 +294,7 @@ function rfm(editing=false){
   ['pL','pC'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ce').value=CFG.costo_fijo||0;document.getElementById('tam').value='100';
   document.getElementById('fAj').value='1';
+  Object.assign(document.getElementById('pC').dataset,{orig:'',aj:'1'});
   setRange('mg',60,10,500);setRange('d5',10,0,30);setRange('d10',20,0,40);
   [...document.getElementById('rto').options].forEach(o=>{if(!['100','500','1000'].includes(o.value))o.remove();});
   document.getElementById('rnd').checked=false;document.getElementById('rto').value='100';
@@ -311,12 +328,13 @@ function updAjInfo(pc,aj){
   el.style.display=pc&&aj!==1?'block':'none';
   if(pc&&aj!==1)el.textContent=`Inflación acumulada ×${aj.toFixed(4).replace('.',',')} → costo actualizado $${f(pc*aj)}. Si cargás un precio de compra nuevo, se reinicia.`;
 }
-function onPcInput(){document.getElementById('fAj').value='1';calc();}
+function onPcInput(){const e=document.getElementById('pC');document.getElementById('fAj').value=e.dataset.orig&&+e.value===+e.dataset.orig?e.dataset.aj:'1';calc();}
 function setRange(id,val,defMin,defMax){const el=document.getElementById(id);el.min=Math.min(defMin,Math.floor(val));el.max=Math.max(defMax,Math.ceil(val));el.step=Number.isInteger(+val)?1:Number.isInteger(+val*10)?0.1:"any";el.value=val;}
 function ltc(key){
   const p=CAT.find(x=>x.key===key);if(!p)return;
   rfm(true);
   document.getElementById('fAj').value=p.aj||1;
+  Object.assign(document.getElementById('pC').dataset,{orig:p.pc||'',aj:p.aj||1});
   document.getElementById('fDbId').value=p.dbId||'';document.getElementById('fCod').value=String(p.dbId||'').padStart(5,'0');
   document.getElementById('fMarca').value=p.marca||'';document.getElementById('fNom').value=p.nombre||'';
   document.getElementById('fTipo').value=p.tipo||'';document.getElementById('fLink').value=p.link||'';stk(p.stock||'in');
@@ -428,7 +446,8 @@ function inflRow(p,mult,oldCf,cfInput){
   const aj=Math.round((p.aj||1)*mult*1e6)/1e6;
   const pl=p.pl?Math.round(p.pl*mult):0;
   let prices;
-  if(p.pc){const[a,b,c]=priceCalc({...p,aj,ce}).map(x=>x.v);prices={p25:a,p5:b,p10:c};}
+  const cur=priceCalc(p).map(x=>x.v),same=p.pc&&[p.p25,p.p5,p.p10].every((v,i)=>Math.abs(v-cur[i])<=2);
+  if(same){const[a,b,c]=priceCalc({...p,aj,ce}).map(x=>x.v);prices={p25:a,p5:b,p10:c};}
   else prices={p25:Math.round(p.p25*mult),p5:Math.round(p.p5*mult),p10:Math.round(p.p10*mult)};
   return{id:p.dbId,body:{...prices,ajuste:aj,pl,extra_cost:ce}};
 }
